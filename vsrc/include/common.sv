@@ -35,9 +35,9 @@ package common;
 	typedef logic[1:0]  u2;
 	typedef logic 	    u1;
 
-	typedef u5 creg_addr_t;
+	typedef u5 creg_addr_t;//register addr in command
 	// typedef u64 word_t;
-	typedef u8 strobe_t;
+	typedef u8 strobe_t; 
 	typedef u12 csr_addr_t;
 
 	
@@ -198,7 +198,7 @@ package common;
      msize_t  size;    // number of bytes
      strobe_t strobe;  // which bytes are enabled? set to zeros for read request
      word_t   data;    // the data to write
- } dbus_req_t;
+ } dbus_req_t; 
  
  typedef struct packed {
      logic  addr_ok;  // is the address accepted by cache?
@@ -215,7 +215,7 @@ package common;
  
  typedef struct packed {
      logic  valid;  // in request?
-     addr_t addr;   // target address
+     addr_t addr;   // target address 指令总线？
  } ibus_req_t;
  
  typedef struct packed {
@@ -275,6 +275,7 @@ typedef struct packed {
 	strobe_t strobe;
 	u64 data;
 } mwrite_req;
+
 
 endpackage
 `endif

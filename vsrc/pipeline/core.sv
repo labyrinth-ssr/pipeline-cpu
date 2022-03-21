@@ -2,14 +2,33 @@
 `define __CORE_SV
 `ifdef VERILATOR
 `include "include/common.sv"
+`include "include/interface.svh"
+`include "pipeline/fetch/fetch.sv"
+`include "pipeline/fetch/pcselect.sv"
+`include "pipeline/decode/decode.sv"
+`include "pipeline/execute/execute.sv"
+`include "pipeline/memory/memory.sv"
+`include "pipeline/writeback/writeback.sv"
+// `include "pipeline/forward/forward.sv"
+// `include "pipeline/hazard/hazard.sv"
 `include "pipeline/regfile/regfile.sv"
+`include "pipeline/regfile/pipereg.sv"
+`include "pipeline/regfile/pcreg.sv"
+
+// `include "pipeline/csr/csr.sv"
 
 `else
-
+`include "include/interface.svh"
 `endif
 
 module core 
-	import common::*;(
+	import common::*;
+	// import fetch_pkg::*;
+	// import decode_pkg::*;
+	// import execute_pkg::*;
+	// import memory_pkg::*;
+	// import writeback_pkg::*;
+	import pipes::*;(
 	input logic clk, reset,
 	output ibus_req_t  ireq,
 	input  ibus_resp_t iresp,
@@ -18,16 +37,151 @@ module core
 );
 	/* TODO: Add your pipeline here. */
 
+	// u64 pc,pc_nxt;
+	
+	pcreg_intf pcreg_intf();
+	dreg_intf dreg_intf();
+	ereg_intf ereg_intf();
+	mreg_intf mreg_intf();
+	wreg_intf wreg_intf();
+	pcselect_intf pcselect_intf();
+	regfile_intf regfile_intf();
+	// forward_intf forward_intf();
+	// hazard_intf hazard_intf();
+	// csr_intf csr_intf();
 
+	// mread_req mread;
+	// mwrite_req mwrite;
+	// u64 imin,inmax;
+	// u64 dmin,dmax;
+
+	// always_ff @(posedge clk) begin
+	// 	if (reset) begin
+	// 		dmin<=64'h8010_0000;
+	// 		dmax<=64'h8000_0000;
+	// 	end else begin
+	// 		if (dreq.addr[31:28]==4'd8 && dreq.valid) begin
+	// 			pass
+	// 		end
+	// 	end
+	// end
+	assign ireq.addr=pcreg_intf.pc;
+	assign ireq.valid=1'b1;
+	u32 raw_instr;
+	assign raw_instr=iresp.data;
+
+	fetch_data_t dataF;
+	decode_data_t dataD;
+	execute_data_t dataE;
+	memory_data_t dataM;
+
+	pcreg pcreg(
+		.clk,.reset,
+		.pc_nxt(64'h8000_0000),
+		.pc(pcreg_intf.pc)
+	);
+
+	pcselect pcselect(
+		// .pcplus4(pc+4),
+		// .pc_selected(pc_nxt)
+		.self(pcselect_intf.pcselect)
+		// .in(pcreg_intf.pcselect),
+		// .pc_selected(pcselect_intf.fetch)
+	);
+
+	fetch fetch(
+		.raw_instr,
+		.pc_selected(pcselect_intf.fetch),
+		.dreg(dreg_intf.fetch)
+	);
+	pipereg #(.T(fetch_data_t)) dreg(
+		.clk,.reset,
+		.in(dreg_intf.dataF_nxt),
+		.out(dreg_intf.dataF)
+	);
+
+	// always_ff @( posedge clk ) begin
+	// 	if (reset) begin
+	// 		pc<=64'h8000_0000;//
+	// 	end else begin
+	// 		pc<=pc_nxt;
+	// 	end
+	// end
+
+	// fetch fetch(
+	// 	// .dataF(dataF),
+	// 	.pc(ireq.addr),
+	// 	.raw_instr(raw_instr),
+	// 	.pcselect(pcselect_intf.fetch)
+	// 	.pcreg(pcreg_intf.fetch)
+	// 	.dreg(dreg_intf.fetch)
+	// );
+
+	// decode decode(
+	// 	.clk,.reset,
+	// 	// .pcselect(pcselect_intf.decode),
+	// 	.dreg(dreg_intf.decode),
+	// 	.ereg(ereg_intf,.decode),
+	// 	.forward(forward_intf.decode),
+	// 	.hazard(hazard_intf.decode),
+	// 	regfile(regfile_intf.decode),
+	// 	csr(csr_intf.decode)
+	// )
+
+	creg_addr_t ra1,ra2;
+	word_t rd1,rd2;
+	decode decode(
+		.dataF,
+		.out_ereg(ereg_intf.decode),
+		.ra1,.ra2,.rd1,.rd2
+	);
+
+	word_t result;
+	// assign result=rd1+{{52{raw_instr[31]}},raw_instr[31:20]};//52+12=64
+	// assign dataD.ctl.re
 	regfile regfile(
 		.clk, .reset,
-		.ra1(),
-		.ra2(),
-		.rd1(),
-		.rd2(),
-		.wvalid(),
-		.wa(),
-		.wd()
+		.ra1,
+		.ra2,
+		.rd1,//取出的数据
+		.rd2,
+		.wvalid(ereg_intf.dataD_nxt.ctl.regwrite),
+		.wa(ereg_intf.dataD_nxt.dst),
+		.wd(result)
+	);
+
+	pipereg #(.T(decode_data_t)) ereg(
+		.clk,.reset,
+		.in(ereg_intf.dataD_nxt),
+		.out(ereg_intf.dataD)
+	);
+
+	execute execute(
+		.clk,
+		.ereg_in(ereg_intf.execute),
+		.out_mreg(mreg_intf.execute)
+	);
+
+	pipereg #(.T(execute_data_t)) mreg(
+		.clk,.reset,
+		.in(mreg_intf.dataE_nxt),
+		.out(mreg_intf.dataE)
+	);
+
+	memory memory(
+		.in(mreg_intf.memory),
+		.out(wreg_intf.memory)
+	);
+
+	pipereg #(.T(u64)) wreg(
+		.clk,.reset,
+		.in(wreg_intf.dataM_nxt),
+		.out(wreg_intf.dataM)
+	);
+
+	writeback writeback (
+		.in(wreg_intf.writeback),
+		.out(result)
 	);
 
 `ifdef VERILATOR
@@ -35,15 +189,15 @@ module core
 		.clock              (clk),
 		.coreid             (0),
 		.index              (0),
-		.valid              (0),
-		.pc                 (0),
+		.valid              (~reset),
+		.pc                 (pcreg_intf.pc),
 		.instr              (0),
 		.skip               (0),
 		.isRVC              (0),
 		.scFailed           (0),
-		.wen                (0),
-		.wdest              (0),
-		.wdata              (0)
+		.wen                (dataD.ctl.regwrite),
+		.wdest              ({3'b0,dataD.dst}),
+		.wdata              (result)
 	);
 	      
 	DifftestArchIntRegState DifftestArchIntRegState (
