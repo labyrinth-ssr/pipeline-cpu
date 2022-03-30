@@ -7,14 +7,15 @@
 
 module pcreg(
     input clk,reset,
-    input u64 pc_nxt,
-    output u64 pc
+    // input u64 pc_nxt,
+    // output u64 pc
+	pcreg_intf.pcreg self
 );
     always_ff @( posedge clk ) begin
 		if (reset) begin
-			pc<=64'h8000_0000;//
+			self.pc<=64'h8000_0000;//
 		end else begin
-			pc<=pc_nxt;
+			self.pc<=self.pc_nxt;
 		end
 	end
     

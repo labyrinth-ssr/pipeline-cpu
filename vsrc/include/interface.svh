@@ -19,12 +19,10 @@ import pipes::*;
 // import forward_pkg::*;
 // import csr_pkg::*;
 
-interface pcreg_intf();
+interface pcreg_intf(output pc);
     u64 pc_nxt,pc;
-
-    modport pcselect(output pc_nxt);
+    modport pc_select(output pc_nxt);
     modport pcreg(output pc,input pc_nxt);
-    modport fetch(input pc);
     
 endinterface
 
@@ -53,8 +51,8 @@ endinterface
 
 interface wreg_intf();
     // execute_data_t dataW,dataW_nxt;
-    u64 dataM;
-    u64 dataM_nxt;
+    // u64 dataM;
+    // u64 dataM_nxt;
 
     modport memory (output dataM_nxt);
     modport mreg_intf(input dataM_nxt,output dataM);
@@ -62,28 +60,29 @@ interface wreg_intf();
     
 endinterface
 
-interface pcselect_intf();
-    // u1 branch_taken;
-    // u64 pcbrach;
+interface pcselect_intf(input u64 pcplus4);
+    u1 branch_taken;
+    u64 pcbranch;//(for beq,pc += sext(offset))
 
-    // u1 jr;
-    // u64 pcjr;
+    u64 pc_selected;
 
-    u64 pc,pcplus4;
-
-    // modport pcselect();
-    modport fetch (input pcplus4);
-    modport pcreg (output pc);
-    modport pcselect (input pc,output pcplus4);
-    // modport decode ();
+    // modport fetch (input pc_selected);
+    modport pcreg (input pc_selected);
+    modport pcselect (input pcbranch,input pcplus4,input branch_taken, output pc_selected);
     
 endinterface
 
-interface regfile_intf();
-    u64 rd1,rd2;
-    creg_addr_t ra1,ra2;
-    modport decode (output ra1,output ra2);
-    modport regfile(input ra1,input ra2,output rd1,rd2);
+interface regfile_intf#(
+	parameter READ_PORTS = AREG_READ_PORTS,
+	parameter WRITE_PORTS = AREG_WRITE_PORTS
+)(input u64 [WRITE_PORTS-1:0] wd);
+    output u64 [READ_PORTS-1:0] rd1, rd2;
+    input creg_addr_t [READ_PORTS-1:0] ra1, ra2;
+    input creg_addr_t [WRITE_PORTS-1:0] wa;
+	input u1 [WRITE_PORTS-1:0] wvalid;
+    modport decode (input rd1,input rd2,output ra1,output ra2);
+    modport regfile(input ra1,input ra2,output rd1,output rd2,input wa,input wvalid,input wd);
+    modport writeback(output wa,output wvalid)
 endinterface
 
 interface forward_intf();

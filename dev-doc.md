@@ -12,4 +12,27 @@
 )
 
 先只做第一条addi，
+addi xori ori andi lui jal beq ld sd add sub and or xor auipc jalr
 
+beq:
+Ifetch: 取指令并计算PC+4
+- Reg/Dec:从寄存器取数，同时指令在译码器进行译码
+- Exec: 执行阶段
+    - ALU中比较两个寄存器的大小（做减法）
+    - Adder中计算转移地址
+- Mem: 如果比较相等, 则：
+    - 转移目标地址写到PC
+-  Wr: 加一个空写阶段
+jalr:
+
+beq和jalr指令的区别
+关于如何取pc的问题，随着时钟变化，ireq变化，
+如何实现跳转？
+指令计数取指令。pc控制ireq。
+
+每次都选择恐惧症发作，关于你需要几个interface的问题。除了全阶段的，暴露在core里面的都用interface吧。这样就可以看到数据的流向了。但是怎么连接呢。
+
+竞争：
+写 寄存器与存储。
+regwr,regadr,
+memwr,memadr

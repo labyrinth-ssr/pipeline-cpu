@@ -14,26 +14,27 @@ module decode
     import pipes::*;(
         input fetch_data_t dataF,
         // dreg_intf.decode dreg_in,
-        ereg_intf.decode out_ereg,
-        // output decode_data_t dataD,
+        // ereg_intf.decode out_ereg,//dataD
+        output decode_data_t dataD,
         // output u64 signed_imm,
-        output creg_addr_t ra1,ra2,
-        input word_t rd1,rd2//
+        // output creg_addr_t ra1,ra2,
+        regfile_intf.decode decode_reg
 );
     control_t ctl;
     decoder decoder (
         .raw_instr(dataF.raw_instr),
         .ctl(ctl)
     );
+    assign dataD.imm=dataF.raw_instr[31:12];
+    assign dataD.srca=decode_reg.rd1;
+    assign dataD.srcb=decode_reg.rd2;
+    assign dataD.ctl=ctl;
+    assign dataD.rd=dataF.raw_instr[11:7];
+    assign dataD.rs2=dataF.raw_instr[24:20];
+    assign dataD.pc=dataF.pc;
 
-    assign out_ereg.dataD_nxt.signed_imm={{52{dataF.raw_instr[31]}},dataF.raw_instr[31:20]};
-    assign out_ereg.dataD_nxt.srca=rd1;
-    assign out_ereg.dataD_nxt.srcb=rd2;
-    assign out_ereg.dataD_nxt.ctl=ctl;
-    assign out_ereg.dataD_nxt.dst=dataF.raw_instr[11:7];
-    assign out_ereg.dataD_nxt.pc=dataF.pc;
-
-    // assign dataD=out
+    assign decode_reg.ra1=dataF.raw_instr[24:20];
+    assign decode_reg.ra2=dataF.raw_instr[19:15];
     
 endmodule
 

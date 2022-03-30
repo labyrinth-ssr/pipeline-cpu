@@ -37,14 +37,14 @@ module core
 );
 	/* TODO: Add your pipeline here. */
 
-	// u64 pc,pc_nxt;
+	u64 pc;
 	
-	pcreg_intf pcreg_intf();
+	pcreg_intf pcreg_intf(.pc(pc));
 	dreg_intf dreg_intf();
 	ereg_intf ereg_intf();
 	mreg_intf mreg_intf();
 	wreg_intf wreg_intf();
-	pcselect_intf pcselect_intf();
+	pcselect_intf pcselect_intf(.pcplus4(pc+4));
 	regfile_intf regfile_intf();
 	// forward_intf forward_intf();
 	// hazard_intf hazard_intf();
@@ -77,13 +77,14 @@ module core
 
 	pcreg pcreg(
 		.clk,.reset,
-		.pc_nxt(64'h8000_0000),
-		.pc(pcreg_intf.pc)
+		.self(pcreg_intf.pcreg)
+		// .pc_nxt(pcselect_intf.pcreg),
+		// .pc(pcreg_intf.pc)
 	);
 
 	pcselect pcselect(
 		// .pcplus4(pc+4),
-		// .pc_selected(pc_nxt)
+		// .pc_selected(pcreg_intf)
 		.self(pcselect_intf.pcselect)
 		// .in(pcreg_intf.pcselect),
 		// .pc_selected(pcselect_intf.fetch)
@@ -91,9 +92,10 @@ module core
 
 	fetch fetch(
 		.raw_instr,
-		.pc_selected(pcselect_intf.fetch),
-		.dreg(dreg_intf.fetch)
+		.pc(pc+4),
+		.dataF(dreg_intf.fetch)
 	);
+
 	pipereg #(.T(fetch_data_t)) dreg(
 		.clk,.reset,
 		.in(dreg_intf.dataF_nxt),
@@ -127,27 +129,31 @@ module core
 	// 	regfile(regfile_intf.decode),
 	// 	csr(csr_intf.decode)
 	// )
-
+	
 	creg_addr_t ra1,ra2;
+	assign 
 	word_t rd1,rd2;
 	decode decode(
-		.dataF,
-		.out_ereg(ereg_intf.decode),
-		.ra1,.ra2,.rd1,.rd2
+		.dataF(dreg_intf.decode),
+		.dataD(ereg_intf.decode),
+		.decode_reg(regfile_intf.decode)
+		// .out_ereg(ereg_intf.decode),
+		// .ra1,.ra2,.rd1,.rd2
 	);
 
-	word_t result;
+	// word_t result;
 	// assign result=rd1+{{52{raw_instr[31]}},raw_instr[31:20]};//52+12=64
 	// assign dataD.ctl.re
 	regfile regfile(
 		.clk, .reset,
-		.ra1,
-		.ra2,
-		.rd1,//取出的数据
-		.rd2,
-		.wvalid(ereg_intf.dataD_nxt.ctl.regwrite),
-		.wa(ereg_intf.dataD_nxt.dst),
-		.wd(result)
+		.self(regfile_intf.regfile)
+		// .ra1,
+		// .ra2,
+		// .rd1,//取出的数据
+		// .rd2,
+		// .wvalid(ereg_intf.dataD_nxt.ctl.regWrite),
+		// .wa(ereg_intf.dataD_nxt.dst),
+		// .wd(result)
 	);
 
 	pipereg #(.T(decode_data_t)) ereg(
@@ -181,7 +187,7 @@ module core
 
 	writeback writeback (
 		.in(wreg_intf.writeback),
-		.out(result)
+		.out(regfile_intf.writeback)
 	);
 
 `ifdef VERILATOR
@@ -195,7 +201,7 @@ module core
 		.skip               (0),
 		.isRVC              (0),
 		.scFailed           (0),
-		.wen                (dataD.ctl.regwrite),
+		.wen                (dataD.ctl.regWrite),
 		.wdest              ({3'b0,dataD.dst}),
 		.wdata              (result)
 	);
