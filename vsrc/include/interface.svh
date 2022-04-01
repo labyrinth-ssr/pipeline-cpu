@@ -85,17 +85,24 @@ interface regfile_intf#(
     modport writeback(output wa,output wvalid)
 endinterface
 
-interface forward_intf();
+// interface forward_intf();
     
-endinterface
+// endinterface
 
 interface hazard_intf();
     
+
+    
+    modport  pcreg(input enable,flush);
+    modport  dreg(input enable,flush,output ctrl);
+    modport  ereg(input enable,flush);
+    modport  mreg(input enable,flush);
+
 endinterface
 
-interface csr_intf();
+// interface csr_intf();
     
-endinterface
+// endinterface
 
 
 `endif 

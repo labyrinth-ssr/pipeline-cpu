@@ -26,7 +26,7 @@ parameter F3_ANDI = 3'b111;
     } fetch_data_t;//
 
 typedef enum logic[5:0] { 
-	UNKNOWN,ADDI,ORI,ANDI,XORI,ADD,SUB,OR,AND,XOR,LUI,LD,SD,BEQ,AUIPC,JAL,JALR
+	UNKNOWN,ITYPE,RTYPE,XOR,LUI,LD,SD,BEQ,AUIPC,JAL,JALR
  } decoded_op_t;
 typedef enum logic [4:0] {
 	ALU_ADD,ALU_SUB,ALU_OR,ALU_XOR,ALU_AND
@@ -68,7 +68,7 @@ typedef struct packed {
 	// u1 memtoReg;
 	// u1 extOp;
 	creg_addr_t dst;
-
+	u64 alu_out;
 
 } execute_data_t;
 
@@ -81,6 +81,9 @@ typedef struct packed {
 	// u1 memtoReg;
 	// u1 regWrite;
 	creg_addr_t dst;
+	creg_addr_t ra;
+	word_t rd;
+	// mread_req mread_req;
 } memory_data_t;
 
 typedef struct packed {

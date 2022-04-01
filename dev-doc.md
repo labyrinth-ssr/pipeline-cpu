@@ -13,7 +13,7 @@
 
 先只做第一条addi，
 addi xori ori andi lui jal beq ld sd add sub and or xor auipc jalr
-
+   
 beq:
 Ifetch: 取指令并计算PC+4
 - Reg/Dec:从寄存器取数，同时指令在译码器进行译码
@@ -36,3 +36,11 @@ beq和jalr指令的区别
 写 寄存器与存储。
 regwr,regadr,
 memwr,memadr
+
+如何表示ctrl
+已知这是好几位的，我肯定需要很多一位的控制信号，而不是整个ctrl，不然会变成一堆case。唉。
+先把单周期情况的搞完吧。
+如何实现跳转，当它译码出
+
+我决定了！除了写后读，全部按照mips的ppt来吧。
+先把架构搭出来再一点点改。

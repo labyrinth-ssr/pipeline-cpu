@@ -12,9 +12,15 @@ import pipes::*; #(
     input reset,
     input T in,
     output T out
+    input logic enable, flush,
+    // hazard_intf.pipereg hazard
 );
 always_ff @( posedge clk ) begin
-        out<=in;
+        if (~resetn | flush) begin // flush overrides enable
+            out <= '0;
+        end else if (enable) begin
+            out <= in;
+        end
     end
 endmodule
 `endif 

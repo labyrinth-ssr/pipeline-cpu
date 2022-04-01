@@ -25,6 +25,11 @@ module decode
         .raw_instr(dataF.raw_instr),
         .ctl(ctl)
     );
+    
+    always_ff @(posedge clk) begin
+        if (jump) instr <= '0; // Warn: this is an invalid instruction
+        else instr <= instr_nxt;
+    end
     assign dataD.imm=dataF.raw_instr[31:12];
     assign dataD.srca=decode_reg.rd1;
     assign dataD.srcb=decode_reg.rd2;

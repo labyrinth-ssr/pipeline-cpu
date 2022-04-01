@@ -46,25 +46,8 @@ module core
 	wreg_intf wreg_intf();
 	pcselect_intf pcselect_intf(.pcplus4(pc+4));
 	regfile_intf regfile_intf();
-	// forward_intf forward_intf();
-	// hazard_intf hazard_intf();
-	// csr_intf csr_intf();
-
-	// mread_req mread;
-	// mwrite_req mwrite;
 	// u64 imin,inmax;
 	// u64 dmin,dmax;
-
-	// always_ff @(posedge clk) begin
-	// 	if (reset) begin
-	// 		dmin<=64'h8010_0000;
-	// 		dmax<=64'h8000_0000;
-	// 	end else begin
-	// 		if (dreq.addr[31:28]==4'd8 && dreq.valid) begin
-	// 			pass
-	// 		end
-	// 	end
-	// end
 	assign ireq.addr=pcreg_intf.pc;
 	assign ireq.valid=1'b1;
 	u32 raw_instr;
@@ -142,7 +125,7 @@ module core
 	);
 
 	// word_t result;
-	// assign result=rd1+{{52{raw_instr[31]}},raw_instr[31:20]};//52+12=64
+	assign result=rd1+{{52{raw_instr[31]}},raw_instr[31:20]};//52+12=64
 	// assign dataD.ctl.re
 	regfile regfile(
 		.clk, .reset,
@@ -174,10 +157,27 @@ module core
 		.out(mreg_intf.dataE)
 	);
 
+	mread_req mread;
+	mwrite_req mwrite;
+	u64 imin,inmax;
+	u64 dmin,dmax;
+	
 	memory memory(
 		.in(mreg_intf.memory),
 		.out(wreg_intf.memory)
 	);
+	assign mread.addr=wreg_intf.dataM_nxt.ra;
+	// assign wreg_intf.dataM_nxt.rd=dresp.data;
+	always_ff @(posedge clk) begin
+		if (reset) begin
+			dmin<=64'h8010_0000;
+			dmax<=64'h8000_0000;
+		end else begin
+			if (dreq.addr[31:28]==4'd8 && dreq.valid) begin
+				wreg_intf.dataM_nxt.rd=dresp.data;
+			end
+		end
+	end
 
 	pipereg #(.T(u64)) wreg(
 		.clk,.reset,

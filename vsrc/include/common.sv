@@ -213,7 +213,7 @@ package common;
   * basically, ibus_resp_t is the same as dbus_resp_t.
   */
  
- typedef struct packed {
+ typedef struct packed {1q
      logic  valid;  // in request?
      addr_t addr;   // target address 指令总线？
  } ibus_req_t;
