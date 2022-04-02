@@ -9,25 +9,16 @@
 `include "pipeline/execute/execute.sv"
 `include "pipeline/memory/memory.sv"
 `include "pipeline/writeback/writeback.sv"
-// `include "pipeline/forward/forward.sv"
-// `include "pipeline/hazard/hazard.sv"
+`include "pipeline/hazard/hazard.sv"
 `include "pipeline/regfile/regfile.sv"
 `include "pipeline/regfile/pipereg.sv"
 `include "pipeline/regfile/pcreg.sv"
-
-// `include "pipeline/csr/csr.sv"
-
 `else
 `include "include/interface.svh"
 `endif
 
 module core 
 	import common::*;
-	// import fetch_pkg::*;
-	// import decode_pkg::*;
-	// import execute_pkg::*;
-	// import memory_pkg::*;
-	// import writeback_pkg::*;
 	import pipes::*;(
 	input logic clk, reset,
 	output ibus_req_t  ireq,
@@ -37,52 +28,55 @@ module core
 );
 	/* TODO: Add your pipeline here. */
 
-	u64 pc;
-	
-	pcreg_intf pcreg_intf(.pc(pc));
-	dreg_intf dreg_intf();
-	ereg_intf ereg_intf();
-	mreg_intf mreg_intf();
-	wreg_intf wreg_intf();
-	pcselect_intf pcselect_intf(.pcplus4(pc+4));
-	regfile_intf regfile_intf();
-	// u64 imin,inmax;
-	// u64 dmin,dmax;
-	assign ireq.addr=pcreg_intf.pc;
-	assign ireq.valid=1'b1;
+	u64 pc,pc_nxt;
 	u32 raw_instr;
-	assign raw_instr=iresp.data;
-
-	fetch_data_t dataF;
-	decode_data_t dataD;
-	execute_data_t dataE;
-	memory_data_t dataM;
-
 	pcreg pcreg(
 		.clk,.reset,
-		.self(pcreg_intf.pcreg)
+		.pc,
+		.pc_nxt
+		// .enable(^hazard_intf.stallF),
 		// .pc_nxt(pcselect_intf.pcreg),
 		// .pc(pcreg_intf.pc)
 	);
+	// pcreg_intf pcreg_intf(.pc(pc));
+	// dreg_intf dreg_intf();
+	// ereg_intf ereg_intf();
+	// mreg_intf mreg_intf();
+	// wreg_intf wreg_intf();
+	// pcselect_intf pcselect_intf(.pcplus4(pc+4));
+	// regfile_intf regfile_intf();
+	assign ireq.addr=pc;
+	assign ireq.valid=1'b1;
+	assign raw_instr=iresp.data;
+	fetch_data_t dataF,dataF_nxt;
+	decode_data_t dataD,dataD_nxt;
+	execute_data_t dataE,dataE_nxt;
+	memory_data_t dataM,dataM_nxt;
+	writeback_data_t dataW,dataW_nxt;
 
+	u64 pc_selected,pc_branch;
+	u1 pc_branch;
 	pcselect pcselect(
-		// .pcplus4(pc+4),
-		// .pc_selected(pcreg_intf)
-		.self(pcselect_intf.pcselect)
+		.pcplus4(pc+4),
+		.pc_selected,
+		.pc_branch,
+		.branch_taken
+		// .self(pcselect_intf.pcselect)
 		// .in(pcreg_intf.pcselect),
 		// .pc_selected(pcselect_intf.fetch)
 	);
-
 	fetch fetch(
 		.raw_instr,
-		.pc(pc+4),
-		.dataF(dreg_intf.fetch)
+		.pc(pc),
+		.dataF(dataF_nxt)
+		// .enable(^hazard_intf.stallD)
 	);
-
+	//self(let the )
 	pipereg #(.T(fetch_data_t)) dreg(
 		.clk,.reset,
-		.in(dreg_intf.dataF_nxt),
-		.out(dreg_intf.dataF)
+		.in(dataF_nxt),
+		.out(dataF)
+		// .hazard(hazard_intf.dreg)
 	);
 
 	// always_ff @( posedge clk ) begin
@@ -114,80 +108,85 @@ module core
 	// )
 	
 	creg_addr_t ra1,ra2;
-	assign 
 	word_t rd1,rd2;
 	decode decode(
-		.dataF(dreg_intf.decode),
-		.dataD(ereg_intf.decode),
-		.decode_reg(regfile_intf.decode)
+		.dataF(dataF),
+		.dataD(dataD_nxt),
+		// .decode_reg(regfile_intf.decode)
 		// .out_ereg(ereg_intf.decode),
-		// .ra1,.ra2,.rd1,.rd2
+		.ra1,.ra2,.rd1,.rd2
 	);
-
 	// word_t result;
-	assign result=rd1+{{52{raw_instr[31]}},raw_instr[31:20]};//52+12=64
+	// assign result=rd1+{{52{raw_instr[31]}},raw_instr[31:20]};//52+12=64
 	// assign dataD.ctl.re
 	regfile regfile(
 		.clk, .reset,
-		.self(regfile_intf.regfile)
-		// .ra1,
-		// .ra2,
-		// .rd1,//取出的数据
-		// .rd2,
-		// .wvalid(ereg_intf.dataD_nxt.ctl.regWrite),
-		// .wa(ereg_intf.dataD_nxt.dst),
-		// .wd(result)
+		// .self(regfile_intf.regfile)
+		.ra1,
+		.ra2,
+		.rd1,//取出的数据
+		.rd2,
+		.wvalid(dataW.ctl.regWrite),
+		.wa(dataW.wa),
+		.wd(dataW.wd)
 	);
 
 	pipereg #(.T(decode_data_t)) ereg(
 		.clk,.reset,
-		.in(ereg_intf.dataD_nxt),
-		.out(ereg_intf.dataD)
+		.in(dataD_nxt),
+		.out(dataD)
 	);
 
 	execute execute(
-		.clk,
-		.ereg_in(ereg_intf.execute),
-		.out_mreg(mreg_intf.execute)
+		.dataD(dataD),
+		.dataE(dataE_nxt)
 	);
 
 	pipereg #(.T(execute_data_t)) mreg(
 		.clk,.reset,
-		.in(mreg_intf.dataE_nxt),
-		.out(mreg_intf.dataE)
+		.in(dataE_nxt),
+		.out(dataE)
 	);
 
 	mread_req mread;
 	mwrite_req mwrite;
-	u64 imin,inmax;
-	u64 dmin,dmax;
+	// u64 imin,inmax;
+	// u64 dmin,dmax;
 	
 	memory memory(
-		.in(mreg_intf.memory),
-		.out(wreg_intf.memory)
+		.dataE(dataE),
+		.dataM(dataM_nxt)
 	);
-	assign mread.addr=wreg_intf.dataM_nxt.ra;
 	// assign wreg_intf.dataM_nxt.rd=dresp.data;
-	always_ff @(posedge clk) begin
-		if (reset) begin
-			dmin<=64'h8010_0000;
-			dmax<=64'h8000_0000;
-		end else begin
-			if (dreq.addr[31:28]==4'd8 && dreq.valid) begin
-				wreg_intf.dataM_nxt.rd=dresp.data;
-			end
-		end
-	end
+	always_comb begin
+        dreq = '0;
+        unique case (dataE.ctl.MemRW)
+            2'b01: begin
+                dreq.valid = '1;
+                dreq.strobe = '0;
+                dreq.addr = dataE.alu;
+            end
+            2'b10: begin
+                dreq.valid = '1;
+                dreq.strobe = '1;
+                dreq.addr = dataE.alu;
+                dreq.data = dataE.rs2;
+            end
+            default: begin
+            end
+        endcase
+    end
+	assign dataM_nxt.rd=dresp.data;
 
-	pipereg #(.T(u64)) wreg(
+	pipereg #(.T(writeback_data_t)) wreg(
 		.clk,.reset,
-		.in(wreg_intf.dataM_nxt),
-		.out(wreg_intf.dataM)
+		.in(dataW),
+		.out(dataW_nxt)
 	);
 
 	writeback writeback (
-		.in(wreg_intf.writeback),
-		.out(regfile_intf.writeback)
+		.in(dataW_nxt),
+		.out(dataW)
 	);
 
 `ifdef VERILATOR

@@ -5,19 +5,9 @@
 `include "include/common.sv"
 `include "include/pipes.sv"
 `endif 
-// `include "include/execute_pkg.sv"
-// `include "include/memory_pkg.sv"
-// `include "include/writeback_pkg.sv"
-// `include "include/forward_pkg.sv"
-// `include "include/csr_pkg.sv"
 
 import common::*;
 import pipes::*;
-// import decode_pkg::*;// import execute_pkg::*;
-// import memory_pkg::*;
-// import writeback_pkg::*;
-// import forward_pkg::*;
-// import csr_pkg::*;
 
 interface pcreg_intf(output pc);
     u64 pc_nxt,pc;
@@ -90,19 +80,16 @@ endinterface
 // endinterface
 
 interface hazard_intf();
+    //when stall is needed,set enable 0
+    //in core, the instaces of piperegs deprived from a template,so they have the same interface,in hazard,it will connect to 5 differnt regs.so in core,the hazard_intf instance will have 6modports,with 5 the same ?
+    //since the in and out are
+    modport  pcreg(input enable);
+    modport  dreg(input enable,flush);
+    modport  ereg(input enable,flush,output memtoReg,regWrite);
+    modport  mreg(input enable,flush,output memtoReg,regWrite);
+    modport  wreg(input flush,output regWrite);
+    modport hazard(input memtoRegE,memtoRegM,regWriteE,regWriteM,regWriteW,output stallF,stallD,flushE)
     
-
-    
-    modport  pcreg(input enable,flush);
-    modport  dreg(input enable,flush,output ctrl);
-    modport  ereg(input enable,flush);
-    modport  mreg(input enable,flush);
-
 endinterface
-
-// interface csr_intf();
-    
-// endinterface
-
 
 `endif 

@@ -44,3 +44,8 @@ memwr,memadr
 
 我决定了！除了写后读，全部按照mips的ppt来吧。
 先把架构搭出来再一点点改。
+
+hazard做什么事？
+只有stall，如何stall。从mem读数据到寄存器，然后取寄存器进行运算。
+必须等到lw到writeback，and才可以到execute阶段。
+指令译码完成后不执行，也就是decode fetch锁存，保持原来的值。同时flush e.

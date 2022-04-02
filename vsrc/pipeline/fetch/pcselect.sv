@@ -11,18 +11,18 @@
 module pcselect
     import common::*;
     (
-    // input u64 pcplus4,
-    // output u64 pc_selected,
-    // input u64 pc_branch,
+    input u64 pcplus4,
+    output u64 pc_selected,
+    input u64 pc_branch
     // input branch_taken
-    pcselect_intf.pcselect self
+    // pcselect_intf.pcselect self
 );
     // assign self.pcplus4=self.pc+4;
     always_comb begin
-        if (self.branch_taken) begin
-            self.pc_selected=self.pcbranch;
+        if (branch_taken) begin
+            pc_selected=pcbranch;
         end else begin
-            self.pc_selected=self.pcplus4;
+            pc_selected=pcplus4;
         end
     end
 endmodule

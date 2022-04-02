@@ -11,16 +11,21 @@ import pipes::*; #(
     input clk,
     input reset,
     input T in,
-    output T out
-    input logic enable, flush,
-    // hazard_intf.pipereg hazard
+    output T out,
+    input enable,flush
+    //use different should be included in the data_t
 );
 always_ff @( posedge clk ) begin
-        if (~resetn | flush) begin // flush overrides enable
+        if (/* ~resetn |  */hazard.flush) begin // flush overrides enable
             out <= '0;
-        end else if (enable) begin
+        end else if (hazard.enable) begin
             out <= in;
         end
     end
 endmodule
+always_comb begin
+    if (T.ctrl.op==) begin
+        pass
+    end
+end
 `endif 

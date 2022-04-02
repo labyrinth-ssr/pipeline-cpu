@@ -14,84 +14,94 @@ import common::*;
 
 
 /* Define pipeline structures here */
-parameter F7_ALU_I = 7'b0010011;
-parameter F3_ADDI = 3'b000;
-parameter F3_XORI = 3'b100;
-parameter F3_ORI  = 3'b110;
-parameter F3_ANDI = 3'b111;
+parameter F7_ITYPE = 7'b0010011;
+parameter F7_RTYPE = 7'b0110011;
+parameter F7_JAL =   7'b1101111;
+parameter F7_JALR =  7'b1100111;
+parameter F7_AUIPC = 7'b0010111;
+parameter F7_BEQ =   7'b1100011;
+parameter F7_LUI =   7'b0110111;
+parameter F7_LD =    7'b0000011;
+parameter F7_SD =    7'b0100011;
 
-    typedef struct packed {
+parameter F3_ADD_SUB = 3'b000;
+parameter F3_XOR = 3'b100;
+parameter F3_OR  = 3'b110;
+parameter F3_AND = 3'b111;
+
+parameter F7_R_ADD=7'b0000000;
+parameter F7_R_SUB=7'b0100000;
+
+
+
+typedef struct packed {
+	u1 valid,
 	u32 raw_instr;
 	u64 pc;//instruction index
     } fetch_data_t;//
 
-typedef enum logic[5:0] { 
-	UNKNOWN,ITYPE,RTYPE,XOR,LUI,LD,SD,BEQ,AUIPC,JAL,JALR
+typedef enum logic[5:0] {
+	UNKNOWN,ITYPE,RTYPE,STYPE,BTYPE,JTYPE,UTYPE
+	// ,LUI,LD,SD,BEQ,AUIPC,JAL,JALR
  } decoded_op_t;
 typedef enum logic [4:0] {
-	ALU_ADD,ALU_SUB,ALU_OR,ALU_XOR,ALU_AND
+	ADD,SUB,OR,XOR,AND
 } alufunc_t;
 
 typedef struct packed {
-	decoded_op_t op;
+	decoded_op_t op;//for ext(imm)
 	alufunc_t alufunc;
-	// u1 regWrite;
-	// u1 aluSrc;
-	// u1 regDst;
-	// u1 branch;
-	// u1 memWrite;
-	// u1 memRead;
-	// u1 memtoReg;
-	// u1 extOp;
-	// u1 pcSrc;
+	u1 regWrite;
+	u1 branch;
+	u2 memRw;
+	u1 pcSrc;
+	u1 selectA,selectB,pcTarget;
+	u2 wbSelect;
 } control_t;
 
 typedef struct packed {
+	u1 valid;
+	u32 raw_instr;
 	word_t srca,srcb;
 	control_t ctl;
 	creg_addr_t rd;//2^5=32 assign the reg to be written
-	creg_addr_t rs2;
 	u64 pc;
-	u20 imm;//signed or zero
 } decode_data_t;
 
 typedef struct packed {
+	u1 valid,
 	u64 pc;
 	control_t ctl;
-	// alufunc_t alufunc;
-	// u1 regWrite;
-	// u1 aluSrc;
-	// u1 regDst;
-	// u1 branch;
-	// u1 memWrite;
-	// u1 memRead;
-	// u1 memtoReg;
-	// u1 extOp;
 	creg_addr_t dst;
 	u64 alu_out;
+	u64 target;
+	u64 sextimm;
+	word_t srcb;
 
 } execute_data_t;
 
 typedef struct packed {
-	// u64 pc;
+	u1 valid;
+	u64 pc;
 	u64 alu_out;
-	decoded_op_t op;
-	// u1 memWrite;
-	// u1 branch;
-	// u1 memtoReg;
-	// u1 regWrite;
+	control_t ctl;
 	creg_addr_t dst;
-	creg_addr_t ra;
+	word_t dst;
+	u64 sextimm;
 	word_t rd;
-	// mread_req mread_req;
 } memory_data_t;
 
 typedef struct packed {
-	// u1 memtoReg;
-	// u1 regWrite;
-	decoded_op_t op;
+	u1 valid;
+	u64 alu_out;
+	u64 pc;
+	u64 sextimm;
+	control_t ctl;
 	creg_addr_t wa;
+	word_t wd;
 } writeback_data_t;
+
+
 
 endpackage
 

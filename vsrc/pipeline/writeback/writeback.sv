@@ -7,15 +7,22 @@
 `endif 
 
 module writeback(
-    wreg_intf.writeback in,//dataM
-    output writeback_data_t out,//dataW
-    regfile_intf.writeback wr_reg_data
+    input memory_data_t dataM,
+    output writeback_data_t dataW
 );
-    assign wr_reg_data.wa=in.dst;
+    assign dataW.alu_out=dataM.alu_out;
+    assign dataW.pc=dataM.pc;
+    assign dataW.sextimm=dataM.sextimm;
+    assign dataW.ctl=dataM.ctl;
+    assign dataW.wd=dataM.rd;
+
     always_comb begin
-        wr_reg_data.wvalid='0
-        unique case(in.op)
-            LD:wr_reg_data.wvalid='1
+        dataW.wa='0;
+        unique case(dataM.ctl.wbSelect)
+            2'b00:dataW.wa=dataM.alu_out;
+            2'b01:dataW.wa=dataM.rd;
+            2'b10:dataW.wa=dataM.pc+4;
+            2'b11:dataW.wa=dataM.sextimm;
     end
     
 endmodule

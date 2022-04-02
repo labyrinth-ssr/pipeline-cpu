@@ -7,13 +7,15 @@
 `endif 
 
 module memory(
-    mreg_intf.memory in,
-    wreg_intf.memory out
+    input execute_data_t dataE.,
+    output memory_data_t dataM
 );
-    // assign out.dataM_nxt=in.dataE.alu_out;
-    assign out.dst=in.dst;
-    assign out.ra=in.alu_out;
-    
+    assign dataM.pc=dataE.pc;
+    assign dataM.dst=dataE.dst;
+    assign dataM.sextimm=dataE.sextimm;
+    assign dataM.alu_out=dataE.alu_out;
+    assign dataM.ctl=dataE.ctl;
+
 endmodule
 
 `endif 
