@@ -49,3 +49,7 @@ hazard做什么事？
 只有stall，如何stall。从mem读数据到寄存器，然后取寄存器进行运算。
 必须等到lw到writeback，and才可以到execute阶段。
 指令译码完成后不执行，也就是decode fetch锁存，保持原来的值。同时flush e.
+
+阻塞法解决数据冲突。
+数据冒险在于写后读。也就是在decode阶段
+确保电路图正确。
