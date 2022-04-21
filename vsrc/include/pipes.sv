@@ -19,7 +19,8 @@ parameter F7_RTYPE = 7'b0110011;
 parameter F7_JAL =   7'b1101111;
 parameter F7_JALR =  7'b1100111;
 parameter F7_AUIPC = 7'b0010111;
-parameter F7_BEQ =   7'b1100011;
+parameter F7_BTYPE =   7'b1100011;
+// parameter F7_BEQ =   7'b1100011;
 parameter F7_LUI =   7'b0110111;
 parameter F7_LD =    7'b0000011;
 parameter F7_SD =    7'b0100011;
@@ -29,10 +30,17 @@ parameter F3_XOR = 3'b100;
 parameter F3_OR  = 3'b110;
 parameter F3_AND = 3'b111;
 
+parameter F3_BEQ = 3'b000;
+parameter F3_BNE = 3'b001;
+parameter F3_BLT = 3'b100;
+
+
 parameter F7_R_ADD=7'b0000000;
 parameter F7_R_SUB=7'b0100000;
 
-
+typedef enum u3{
+	NO_BRANCH,BRANCH_BEQ,BRANCH_BNE,BRANCH_BLT
+} branch_t;
 
 typedef struct packed {
 	u1 valid;
@@ -52,7 +60,7 @@ typedef struct packed {
 	decoded_op_t op;//for ext(imm)
 	alufunc_t alufunc;
 	u1 regWrite;
-	u1 branch;
+	branch_t branch;
 	u2 memRw;
 	u1 pcSrc;
 	u1 selectA,selectB,pcTarget;

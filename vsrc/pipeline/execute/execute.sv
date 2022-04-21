@@ -59,6 +59,13 @@ u64 pcAdded;
     assign dataE.ctl=dataD.ctl;
     assign dataE.pc=dataD.pc;
     assign dataE.valid=dataD.valid;
+    always_comb begin
+        dataE.ctl=dataD.ctl;
+        if (dataD.ctl.branch!=NO_BRANCH) begin
+            dataE.ctl.pcSrc=(dataE.ctl.branch==BRANCH_BEQ&&dataD.srca==dataD.srcb)||(dataE.ctl.branch==BRANCH_BNE&&dataD.srca!=dataD.srcb)||(dataE.ctl.branch==BRANCH_BLT&&dataD.srca<dataD.srcb)
+        end
+    end
+    // assign dataE.ctl (dataE.ctl.branch==BRANCH_BNE&&dataE.alu_out!=0)
 
     // assign dataE_nxt.ctl=dataD.ctl;
     // always_ff @(posedge clk) begin $display("%x", alu_result); end

@@ -22,7 +22,7 @@
 module core 
 	import common::*;
 	import pipes::*;(
-	input logic clk, reset,
+	input logic clk, reset,      
 	output ibus_req_t  ireq,
 	input  ibus_resp_t iresp,
 	output dbus_req_t  dreq,
@@ -36,16 +36,16 @@ module core
 	assign edst=dataE_nxt.dst;
 	assign mdst=dataM_nxt.dst;
 	assign wdst=dataW.wa;
-    u1 ebranch,mbranch;
+    u1 ebranch;
 	assign ebranch=dataE_nxt.ctl.pcSrc;
-	assign mbranch=dataM_nxt.ctl.pcSrc;
+	// assign mbranch=dataM_nxt.ctl.pcSrc;
     creg_addr_t rs1,rs2;
     u1 wrE,wrM,wrW;
 	assign wrE=dataE_nxt.ctl.regWrite;
 	assign wrM=dataM_nxt.ctl.regWrite;
 	assign wrW=dataW.ctl.regWrite;
 	hazard hazard(
-		.stallF,.stallD,.flushF,.flushD,.flushE,.edst,.mdst,.wdst,.ebranch,.mbranch,.rs1,.rs2,.wrE,.wrM,.wrW
+		.stallF,.stallD,.flushF,.flushD,.flushE,.edst,.mdst,.wdst,.ebranch,.rs1,.rs2,.wrE,.wrM,.wrW
 	);
 	pcreg pcreg(
 		.clk,.reset,
@@ -66,7 +66,7 @@ module core
 	pcselect pcselect(
 		.pcplus4(pc+4),
 		.pc_selected(pc_nxt),
-		.pc_branch(dataE.target),
+		.pc_branch(dataE_nxt.target),
 		.branch_taken(dataM_nxt.ctl.pcSrc)
 	);
 	fetch fetch(
@@ -87,23 +87,16 @@ module core
 		.dataD(dataD_nxt),
 		.rs1,.rs2,.rd1,.rd2
 	);
-	// always_ff @(posedge clk) begin
-	// 	$display("%x %x %x %x",pc,dataW.wa,dataW.wd,dreq.addr);
-	// end
-	// always_ff @(posedge clk) begin
-	// 	$display("%x",(dataE.ctl.memRw!=2'b00)||&& (dreq.addr[31]==0));
-	// end
 	regfile regfile(
 		.clk, .reset,
 		.rs1,
 		.rs2,
-		.rd1,//取出的数�?
+		.rd1,//取出的数�?
 		.rd2,
 		.wvalid(dataW.ctl.regWrite),
 		.wa(dataW.wa/* 5'h0) */),
 		.wd(dataW.wd)
 	);
-	/* (pc==64'h0000000080000028)?5'h0:dataW.wa */
 	pipereg #(.T(decode_data_t)) ereg(
 		.clk,.reset,
 		.in(dataD_nxt),
@@ -129,25 +122,6 @@ module core
 		.dresp,
 		.dreq
 	);
-//	always_comb begin
-//        dreq = '0;
-//        unique case (dataE.ctl.memRw)
-//            2'b01: begin
-//                dreq.valid = '1;
-//                dreq.strobe = '0;
-//                dreq.addr = dataE.alu_out;
-//				dataM_nxt.rd=dresp.data;
-//            end
-//            2'b10: begin//write
-//                dreq.valid = '1;
-//                dreq.strobe = '1;
-//                dreq.addr = dataE.alu_out;
-//                dreq.data = dataE.srcb;
-//            end
-//            default: begin
-//            end
-//        endcase
-//    end
 	pipereg #(.T(memory_data_t)) wreg(
 		.clk,.reset,
 		.in(dataM_nxt),
@@ -160,7 +134,6 @@ module core
 		.dataM(dataM),
 		.dataW(dataW)
 	);
-// 64'h000000008000002c
 `ifdef VERILATOR
 	DifftestInstrCommit DifftestInstrCommit(
 		.clock              (clk),

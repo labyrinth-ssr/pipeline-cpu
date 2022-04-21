@@ -86,10 +86,23 @@ always_comb begin
             ctl.wbSelect=2'b10;
             ctl.selectB=1'b1;
         end
-        F7_BEQ:begin
+        F7_BTYPE:begin
             ctl.op=BTYPE;
-            ctl.branch=1'b1;
             ctl.alufunc=SUB;
+                unique case (f3)
+                F3_BEQ:begin
+                    ctl.branch=BRANCH_BEQ;
+                    ctl.pcSrc=
+                end
+                F3_BNE:begin
+                    ctl.branch=BRANCH_BNE;
+                end
+                F3_BLT:begin
+                    ctl.branch=BRANCH_BLT;
+                end
+                default:begin
+                end 
+            endcase
         end
         F7_AUIPC:begin
             ctl.op=UTYPE;

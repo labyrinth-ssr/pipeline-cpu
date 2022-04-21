@@ -34,9 +34,11 @@ import common::*;
             end
         endcase
         dataM.ctl=dataE.ctl;
-        if (dataE.ctl.branch&&(dataE.alu_out==0)) begin
-                dataM.ctl.pcSrc=1'b1;
-            end
+        // if (dataE.ctl.branch==BRANCH_BEQ&&dataE.alu_out==0) begin
+        //         dataM.ctl.pcSrc=1'b1;
+        //     end
+        //         dataM.ctl.pcSrc=(dataE.ctl.branch==BRANCH_BEQ&&dataE.alu_out==0)||(dataE.ctl.branch==BRANCH_BNE&&dataE.alu_out!=0)||((dataE.ctl.branch==BRANCH_BLT&&dataE.alu_out<0))
+        
     end
 
         

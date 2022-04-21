@@ -13,13 +13,9 @@ module decode
     import common::*;
     import pipes::*;(
         input fetch_data_t dataF,
-        // dreg_intf.decode dreg_in,
-        // ereg_intf.decode out_ereg,//dataD
         output decode_data_t dataD,
-        // output u64 signed_imm,
         output creg_addr_t rs1,rs2,
         input word_t rd1,rd2
-        // regfile_intf.decode decode_reg
 );
     control_t ctl;
     decoder decoder (
