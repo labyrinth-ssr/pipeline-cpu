@@ -38,6 +38,21 @@ always_comb begin
                 F3_AND:begin
                     ctl.alufunc=AND;
                 end
+                F3_SLT:begin
+                    ctl.alufunc=SCMP;
+                end
+                F3_SLTU:begin
+                    ctl.alufunc=CMP;
+                end
+                F3_SLL:begin
+                    ctl.alufunc=LS;
+                end
+                F3_SR:begin
+                    unique case (f6)
+                        F6_LOGIC:ctl.alufunc=RS;
+                        F6_ARITH:ctl.alufunc=SRS;
+                    endcase
+                end
                 default:begin
                 end 
             endcase
@@ -45,47 +60,27 @@ always_comb begin
         F7_IW:begin
             ctl.op=ITYPE;
             ctl.regWrite=1'b1;
-            unique case (f3)
-                F3_ADDIW:begin
                     ctl.selectB=1'b1;
-                    ctl.extAluOut='1;
-                end
-                F3_SRIW:begin
-                    unique case(f6)
-                    F6_SRLIW:ctl.alufunc=RSW;
-                    F6_SRAIW:ctl.alufunc=SRSW;
-                end
-                F3_SLLIW:begin
-                    ctl.alufunc=LS;
-                    ctl.extAluOut='1;
-                end
-            endcase
-        end
-        F7_SLRI:begin
-            ctl.op=ITYPE;
-            ctl.regWrite=1'b1;
-            ctl.selectB=1'b1;
             unique case (f3)
-                F3_SLTI:begin
-                    ctl.alufunc=SCMP;
+                F3_ADD_SUBW:begin
+                    ctl.extAluOut='1;
                 end
-                F3_SLTIU:begin
-                    ctl.alufunc=CMP;
+                F3_SRW:begin
+                    unique case(f6)
+                    F6_LOGIC:ctl.alufunc=RSW;
+                    F6_ARITH:ctl.alufunc=SRSW;
                 end
-                F3_SLLI:begin
+                F3_SLLW:begin
                     ctl.alufunc=LS;
-                end
-                F3_SRI:begin
-                    unique case (f6)
-                        F6_SRLI:ctl.alufunc=RS;
-                        F6_SRAI:ctl.alufunc=SRS;
-                    endcase
+                    ctl.extAluOut='1;
                 end
             endcase
         end
         F7_RTYPE:begin
             ctl.op=RTYPE;
             ctl.regWrite=1'b1;
+                    ctl.selectB=1'b0;
+
             unique case (f3)
                 F3_ADD_SUB:begin
                     unique case (rf7)
@@ -105,13 +100,49 @@ always_comb begin
                 F3_AND:begin
                     ctl.alufunc=AND;
                 end
+                F3_SLT:begin
+                    ctl.alufunc=SCMP;
+                end
+                F3_SLTU:begin
+                    ctl.alufunc=CMP;
+                end
+                F3_SLL:begin
+                    ctl.alufunc=LS;
+                end
+                F3_SR:begin
+                    unique case (f6)
+                        F6_LOGIC:ctl.alufunc=RS;
+                        F6_ARITH:ctl.alufunc=SRS;
+                    endcase
+                end
                 default:begin
                     
                 end 
             endcase
         end 
         default:begin
-            
+        end
+        F7_RW:begin
+            ctl.op=RTYPE;
+            ctl.regWrite=1'b1;
+            ctl.selectB='0;
+            unique case (f3)
+                F3_ADD_SUBW:begin
+                    ctl.extAluOut='1;
+                    unique case(rf7):
+                    F7_R_ADD:ctl.alufunc=ADD;
+                    F7_R_SUB:ctl.alufunc=SUB;
+                end
+                F3_SRW:begin
+                    unique case(f6)
+                    F6_LOGIC:ctl.alufunc=SRLW;
+                    F6_ARITH:ctl.alufunc=SRAW;
+                end
+                F3_SLLW:begin
+                    ctl.alufunc=SLLW;
+                    ctl.extAluOut='1;
+                end
+            endcase
         end
         F7_JAL:begin
             ctl.op=JTYPE;

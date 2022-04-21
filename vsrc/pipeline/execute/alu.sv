@@ -30,8 +30,12 @@ module alu
 			SRS:c=$signed(a) >>> b[5:0];
 			CMP:c=a<b;
 			SCMP:c= $signed(a) < $signed(b);
-			RSW:c=$signed(a[31:0]) >>> b[5:0];
+			RSW:c=$signed(a[31:0] >> b[5:0]);
 			SRSW:c=$signed($signed(a[31:0]) >>> b[5:0]);
+			
+			SLLW:c= a<<b[4:0];
+			SRLW:c=$signed(a[31:0] >> b[4:0]);
+			SRAW:$signed($signed(a[31:0]) >>> b[4:0]);
 
 			default: begin
 			end

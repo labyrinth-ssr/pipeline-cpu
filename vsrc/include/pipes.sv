@@ -25,7 +25,8 @@ parameter F7_LUI =7'b0110111;
 parameter F7_LD = 7'b0000011;
 parameter F7_SD = 7'b0100011;
 parameter F7_IW = 7'b0011011;
-parameter F7_SLRI = 7'b0010011;
+parameter F7_RW = 7'b0111011;
+
 
 parameter F3_ADD_SUB = 3'b000;
 parameter F3_XOR = 3'b100;
@@ -39,20 +40,17 @@ parameter F3_BGE = 3'b101;
 parameter F3_BLTU = 3'b110;
 parameter F3_BGEU = 3'b111;
 
-parameter F3_ADDIW=3'b000;
-parameter F3_SRIW=3'b101;
-parameter F3_SLLIW=3'b001;
+parameter F3_ADD_SUBW=3'b000;
+parameter F3_SLLW=3'b001;
+parameter F3_SRW=3'b101;
 
-parameter F6_SRLIW=6'b000000;
-parameter F6_SRAIW=6'b010000;
+parameter F6_LOGIC=6'b000000;
+parameter F6_ARITH=6'b010000;
 
-parameter F6_SRLI=6'b000000;
-parameter F6_SRAI=6'b010000;
-
-parameter F3_SLTI=3'b010;
-parameter F3_SLTIU=3'b011;
-parameter F3_SLLI=3'b001;
-parameter F3_SRI=3'b101;
+parameter F3_SLL=3'b001;
+parameter F3_SLT=3'b010;
+parameter F3_SLTU=3'b011;
+parameter F3_SR=3'b101;
 
 parameter F7_R_ADD=7'b0000000;
 parameter F7_R_SUB=7'b0100000;
@@ -72,7 +70,7 @@ typedef enum logic[5:0] {
 	// ,LUI,LD,SD,BEQ,AUIPC,JAL,JALR
  } decoded_op_t;
 typedef enum logic [4:0] {
-	ADD,SUB,OR,XOR,AND,LS,RS,SLS,SRS,CMP,SCMP
+	ADD,SUB,OR,XOR,AND,LS,RS,SLS,SRS,CMP,SCMP,RSW,SRSW,SLLW,SRLW,SRAW
 } alufunc_t;
 
 typedef struct packed {
