@@ -62,7 +62,7 @@ u64 pcAdded;
     always_comb begin
         dataE.ctl=dataD.ctl;
         if (dataD.ctl.branch!=NO_BRANCH) begin
-            dataE.ctl.pcSrc=(dataE.ctl.branch==BRANCH_BEQ&&dataD.srca==dataD.srcb)||(dataE.ctl.branch==BRANCH_BNE&&dataD.srca!=dataD.srcb)||(dataE.ctl.branch==BRANCH_BLT&&$signed(dataD.srca)<$signed(dataD.srcb))||(dataE.ctl.branch==BRANCH_BGE&&$signed(dataD.srca)>$signed(dataD.srcb))||(dataE.ctl.branch==BRANCH_BLTU&&dataD.srca<dataD.srcb)||(dataE.ctl.branch==BRANCH_BGEU&&dataD.srca>dataD.srcb)
+            dataE.ctl.pcSrc=(dataE.ctl.branch==BRANCH_BEQ&&dataD.srca==dataD.srcb)||(dataE.ctl.branch==BRANCH_BNE&&dataD.srca!=dataD.srcb)||(dataE.ctl.branch==BRANCH_BLT&&$signed(dataD.srca)<$signed(dataD.srcb))||(dataE.ctl.branch==BRANCH_BGE&&$signed(dataD.srca)>=$signed(dataD.srcb))||(dataE.ctl.branch==BRANCH_BLTU&&dataD.srca<dataD.srcb)||(dataE.ctl.branch==BRANCH_BGEU&&dataD.srca>=dataD.srcb)
         end
     end
     // assign dataE.ctl (dataE.ctl.branch==BRANCH_BNE&&dataE.alu_out!=0)
