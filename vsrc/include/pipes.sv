@@ -33,13 +33,17 @@ parameter F3_AND = 3'b111;
 parameter F3_BEQ = 3'b000;
 parameter F3_BNE = 3'b001;
 parameter F3_BLT = 3'b100;
+parameter F3_BGE = 3'b101;
+parameter F3_BLTU = 3'b110;
+parameter F3_BGEU = 3'b111;
+
 
 
 parameter F7_R_ADD=7'b0000000;
 parameter F7_R_SUB=7'b0100000;
 
 typedef enum u3{
-	NO_BRANCH,BRANCH_BEQ,BRANCH_BNE,BRANCH_BLT
+	NO_BRANCH,BRANCH_BEQ,BRANCH_BNE,BRANCH_BLT,BRANCH_BGE,BRANCH_BLTU,BRANCH_BGEU
 } branch_t;
 
 typedef struct packed {

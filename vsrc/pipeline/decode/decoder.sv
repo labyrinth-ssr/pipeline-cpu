@@ -100,6 +100,15 @@ always_comb begin
                 F3_BLT:begin
                     ctl.branch=BRANCH_BLT;
                 end
+                F3_BGE:begin
+                    ctl.branch=BRANCH_BGE;
+                end
+                F3_BLTU:begin
+                    ctl.branch=BRANCH_BLTU;
+                end
+                F3_BGEU:begin
+                    ctl.branch=BRANCH_BGEU;
+                end
                 default:begin
                 end 
             endcase
