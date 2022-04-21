@@ -52,11 +52,12 @@ always_comb begin
                 end
                 F3_SRIW:begin
                     unique case(f6)
-                    F6_SRLIW:ctl.alufunc=RS;
-                    F6_SRAIW:ctl.alufunc=SRS;
+                    F6_SRLIW:ctl.alufunc=RSW;
+                    F6_SRAIW:ctl.alufunc=SRSW;
                 end
                 F3_SLLIW:begin
                     ctl.alufunc=LS;
+                    ctl.extAluOut='1;
                 end
             endcase
         end
