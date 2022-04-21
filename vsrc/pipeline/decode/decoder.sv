@@ -17,6 +17,7 @@ module decoder
 wire [6:0] f7=raw_instr[6:0];
 wire [2:0] f3=raw_instr[14:12];
 wire [6:0] rf7=raw_instr[31:25];
+u6 f6=raw_instr[31:26]
 always_comb begin
     ctl ='0;//bit numbers depends on context
     unique case (f7)
@@ -38,8 +39,47 @@ always_comb begin
                     ctl.alufunc=AND;
                 end
                 default:begin
-                    
                 end 
+            endcase
+        end
+        F7_IW:begin
+            ctl.op=ITYPE;
+            ctl.regWrite=1'b1;
+            unique case (f3)
+                F3_ADDIW:begin
+                    ctl.selectB=1'b1;
+                    ctl.extAluOut='1;
+                end
+                F3_SRIW:begin
+                    unique case(f6)
+                    F6_SRLIW:ctl.alufunc=RS;
+                    F6_SRAIW:ctl.alufunc=SRS;
+                end
+                F3_SLLIW:begin
+                    ctl.alufunc=LS;
+                end
+            endcase
+        end
+        F7_SLRI:begin
+            ctl.op=ITYPE;
+            ctl.regWrite=1'b1;
+            ctl.selectB=1'b1;
+            unique case (f3)
+                F3_SLTI:begin
+                    ctl.alufunc=SCMP;
+                end
+                F3_SLTIU:begin
+                    ctl.alufunc=CMP;
+                end
+                F3_SLLI:begin
+                    ctl.alufunc=LS;
+                end
+                F3_SRI:begin
+                    unique case (f6)
+                        F6_SRLI:ctl.alufunc=RS;
+                        F6_SRAI:ctl.alufunc=SRS;
+                    endcase
+                end
             endcase
         end
         F7_RTYPE:begin

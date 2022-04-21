@@ -52,7 +52,6 @@ u64 pcAdded;
         .target(dataE.target)
     );
     assign dataE.pc=dataD.pc;
-    assign dataE.alu_out=alu_result;
     assign dataE.sextimm=sextimm;
     assign dataE.srcb=dataD.srcb;
     assign dataE.dst=dataD.rd;
@@ -61,8 +60,12 @@ u64 pcAdded;
     assign dataE.valid=dataD.valid;
     always_comb begin
         dataE.ctl=dataD.ctl;
+        dataE.alu_out=alu_result
         if (dataD.ctl.branch!=NO_BRANCH) begin
             dataE.ctl.pcSrc=(dataE.ctl.branch==BRANCH_BEQ&&dataD.srca==dataD.srcb)||(dataE.ctl.branch==BRANCH_BNE&&dataD.srca!=dataD.srcb)||(dataE.ctl.branch==BRANCH_BLT&&$signed(dataD.srca)<$signed(dataD.srcb))||(dataE.ctl.branch==BRANCH_BGE&&$signed(dataD.srca)>=$signed(dataD.srcb))||(dataE.ctl.branch==BRANCH_BLTU&&dataD.srca<dataD.srcb)||(dataE.ctl.branch==BRANCH_BGEU&&dataD.srca>=dataD.srcb)
+        end
+        else if (dataD.ctl.extAluOut) begin
+            dataE.alu_out={{32{alu_result[31]}},alu_result[31:0]}
         end
     end
     // assign dataE.ctl (dataE.ctl.branch==BRANCH_BNE&&dataE.alu_out!=0)

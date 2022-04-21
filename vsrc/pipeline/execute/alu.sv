@@ -24,6 +24,10 @@ module alu
 			OR: c = a | b;
 			AND: c = a & b;
 			XOR: c = a ^ b;
+			LS: c= a<<b[5:0];
+			RS: c= a>>b[5:0];
+			SLS:$signed(a) <<< b[5:0];
+			SRS:$signed(a) >>> b[5:0];
 			default: begin
 			end
 		endcase
