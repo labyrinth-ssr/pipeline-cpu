@@ -3,7 +3,10 @@
 
 `ifdef VERILATOR
 `include "include/common.sv"
+`include "include/pipes.sv"
 `include "include/interface.svh"
+`include "pipeline/memory/readdata.sv"
+`include "pipeline/memory/writedata.sv"
 `endif 
 
 module memory
@@ -14,6 +17,7 @@ import common::*;
     output dbus_req_t  dreq,
     input  dbus_resp_t dresp
 );
+
     always_comb begin
         dreq = '0;
         dataM.rd='0;
@@ -22,26 +26,19 @@ import common::*;
                 dreq.valid = '1;
                 dreq.strobe = '0;
                 dreq.addr = dataE.alu_out;
-				dataM.rd=dresp.data;
             end
             2'b10: begin//write
                 dreq.valid = '1;
-                dreq.strobe = '1;
                 dreq.addr = dataE.alu_out;
-                dreq.data = dataE.srcb;
             end
             default: begin
             end
         endcase
         dataM.ctl=dataE.ctl;
-        // if (dataE.ctl.branch==BRANCH_BEQ&&dataE.alu_out==0) begin
-        //         dataM.ctl.pcSrc=1'b1;
-        //     end
-        //         dataM.ctl.pcSrc=(dataE.ctl.branch==BRANCH_BEQ&&dataE.alu_out==0)||(dataE.ctl.branch==BRANCH_BNE&&dataE.alu_out!=0)||((dataE.ctl.branch==BRANCH_BLT&&dataE.alu_out<0))
-        
     end
+readdata readdata(._rd(dresp.data),.rd(dataM.rd),.addr(dataE.alu_out[2:0]),.msize(dataE.ctl.msize),.mem_unsigned(dataE.ctl.mem_unsigned));
+writedata writedata(.addr(dataE.alu_out[2:0]),._wd(dataE.srcb),.msize(dataE.ctl.msize),.wd(dreq.data),.strobe(dreq.strobe));
 
-        
     assign dataM.pc=dataE.pc;
 
     assign dataM.dst=dataE.dst;

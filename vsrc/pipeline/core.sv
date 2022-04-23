@@ -31,7 +31,7 @@ module core
 	/* TODO: Add your pipeline here. */
 	u64 pc,pc_nxt;
 	u32 raw_instr;
-	u1 stallF,stallD,flushF,flushD,flushE;
+	u1 stallF,stallD,flushF,flushD,flushE,flushM,stallM;
     creg_addr_t edst,mdst,wdst;
 	assign edst=dataE_nxt.dst;
 	assign mdst=dataM_nxt.dst;
@@ -108,12 +108,14 @@ module core
 		.dataD(dataD),
 		.dataE(dataE_nxt)
 	);
+	assign stallM = dreq.valid && ~dresp.data_ok;
+	assign flushW = dreq.valid && ~dresp.data_ok;
 
 	pipereg #(.T(execute_data_t)) mreg(
 		.clk,.reset,
 		.in(dataE_nxt),
 		.out(dataE),
-		.en(1),
+		.en(~stallM),
 		.flush(flushE)
 	);
 	memory memory(
@@ -127,7 +129,7 @@ module core
 		.in(dataM_nxt),
 		.out(dataM),
 		.en(1),
-		.flush(0)
+		.flush(flushM)
 	);
 
 	writeback writeback (

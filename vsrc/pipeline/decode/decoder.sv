@@ -17,7 +17,7 @@ module decoder
 wire [6:0] f7=raw_instr[6:0];
 wire [2:0] f3=raw_instr[14:12];
 wire [6:0] rf7=raw_instr[31:25];
-u6 f6=raw_instr[31:26]
+u6 f6=raw_instr[31:26];
 always_comb begin
     ctl ='0;//bit numbers depends on context
     unique case (f7)
@@ -69,6 +69,7 @@ always_comb begin
                     unique case(f6)
                     F6_LOGIC:ctl.alufunc=RSW;
                     F6_ARITH:ctl.alufunc=SRSW;
+                endcase
                 end
                 F3_SLLW:begin
                     ctl.alufunc=LS;
@@ -129,14 +130,18 @@ always_comb begin
             unique case (f3)
                 F3_ADD_SUBW:begin
                     ctl.extAluOut='1;
-                    unique case(rf7):
+                    unique case(rf7)
                     F7_R_ADD:ctl.alufunc=ADD;
                     F7_R_SUB:ctl.alufunc=SUB;
+                endcase
+
                 end
                 F3_SRW:begin
                     unique case(f6)
                     F6_LOGIC:ctl.alufunc=SRLW;
                     F6_ARITH:ctl.alufunc=SRAW;
+                endcase
+
                 end
                 F3_SLLW:begin
                     ctl.alufunc=SLLW;
@@ -164,7 +169,6 @@ always_comb begin
                 unique case (f3)
                 F3_BEQ:begin
                     ctl.branch=BRANCH_BEQ;
-                    ctl.pcSrc=
                 end
                 F3_BNE:begin
                     ctl.branch=BRANCH_BNE;
@@ -204,13 +208,15 @@ always_comb begin
             ctl.alufunc=ADD;
             ctl.wbSelect=2'b01;
             ctl.memRw=2'b01;
-
+            ctl.mem_unsigned=f3[2];
+            ctl.msize=f3[1:0];
         end
         F7_SD:begin
             ctl.op=STYPE;
             ctl.selectB=1'b1;
             ctl.alufunc=ADD;
             ctl.memRw=2'b10;
+            ctl.msize=f3[1:0];
         end
     endcase
 end

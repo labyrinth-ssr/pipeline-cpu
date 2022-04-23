@@ -27,7 +27,6 @@ parameter F7_SD = 7'b0100011;
 parameter F7_IW = 7'b0011011;
 parameter F7_RW = 7'b0111011;
 
-
 parameter F3_ADD_SUB = 3'b000;
 parameter F3_XOR = 3'b100;
 parameter F3_OR  = 3'b110;
@@ -51,6 +50,16 @@ parameter F3_SLL=3'b001;
 parameter F3_SLT=3'b010;
 parameter F3_SLTU=3'b011;
 parameter F3_SR=3'b101;
+
+parameter F3_LB=3'b000;
+parameter F3_LBU=3'b100;
+parameter F3_LH=3'b001;
+parameter F3_LHU=3'b101;
+parameter F3_LW=3'b010;
+parameter F3_LWU=3'b110;
+parameter F3_LD=3'b011;
+
+
 
 parameter F7_R_ADD=7'b0000000;
 parameter F7_R_SUB=7'b0100000;
@@ -78,8 +87,10 @@ typedef struct packed {
 	alufunc_t alufunc;
 	branch_t branch;
 	u2 memRw;
-	u1 pcSrc,regWrite,selectA,selectB,pcTarget,extAluOut;
+	u1 pcSrc,regWrite,selectA,selectB,pcTarget,extAluOut,mem_unsigned;
 	u2 wbSelect;//left:1,right:2
+	msize_t msize;
+
 } control_t;
 
 typedef struct packed {

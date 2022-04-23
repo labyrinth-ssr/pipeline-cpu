@@ -11,7 +11,7 @@ import common::*;
 import pipes::*;(
     output u1 stallF,stallD,flushF,flushD,flushE,
     input creg_addr_t edst,mdst,wdst,
-    input ebranch
+    input ebranch,
     input creg_addr_t rs1,rs2,
     input wrE,wrM,wrW
 );
