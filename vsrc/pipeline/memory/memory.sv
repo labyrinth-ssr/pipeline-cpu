@@ -17,10 +17,11 @@ import common::*;
     output dbus_req_t  dreq,
     input  dbus_resp_t dresp
 );
-
+u64 wd;
+u8 strobe;
     always_comb begin
         dreq = '0;
-        dataM.rd='0;
+        // dataM.rd='0;
         unique case (dataE.ctl.memRw)
             2'b01: begin
                 dreq.valid = '1;
@@ -30,6 +31,8 @@ import common::*;
             2'b10: begin//write
                 dreq.valid = '1;
                 dreq.addr = dataE.alu_out;
+                dreq.data=wd;
+                dreq.strobe=strobe;
             end
             default: begin
             end
@@ -37,7 +40,7 @@ import common::*;
         dataM.ctl=dataE.ctl;
     end
 readdata readdata(._rd(dresp.data),.rd(dataM.rd),.addr(dataE.alu_out[2:0]),.msize(dataE.ctl.msize),.mem_unsigned(dataE.ctl.mem_unsigned));
-writedata writedata(.addr(dataE.alu_out[2:0]),._wd(dataE.srcb),.msize(dataE.ctl.msize),.wd(dreq.data),.strobe(dreq.strobe));
+writedata writedata(.addr(dataE.alu_out[2:0]),._wd(dataE.srcb),.msize(dataE.ctl.msize),.wd(wd),.strobe(strobe));
 
     assign dataM.pc=dataE.pc;
 

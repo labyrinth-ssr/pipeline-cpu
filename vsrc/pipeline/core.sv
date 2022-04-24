@@ -31,7 +31,8 @@ module core
 	/* TODO: Add your pipeline here. */
 	u64 pc,pc_nxt;
 	u32 raw_instr;
-	u1 stallF,stallD,flushF,flushD,flushE,flushM,stallM;
+	u1 stallF,stallD,flushF,flushD,flushE,flushM,stallM,stallE;
+	u1 i_wait,d_wait;
     creg_addr_t edst,mdst,wdst;
 	assign edst=dataE_nxt.dst;
 	assign mdst=dataM_nxt.dst;
@@ -44,14 +45,16 @@ module core
 	assign wrE=dataE_nxt.ctl.regWrite;
 	assign wrM=dataM_nxt.ctl.regWrite;
 	assign wrW=dataW.ctl.regWrite;
+	assign i_wait=ireq.valid && ~iresp.data_ok;
+	assign d_wait=dreq.valid && ~dresp.data_ok;
 	hazard hazard(
-		.stallF,.stallD,.flushF,.flushD,.flushE,.edst,.mdst,.wdst,.ebranch,.rs1,.rs2,.wrE,.wrM,.wrW
+		.stallF,.stallD,.flushF,.flushD,.flushE,.edst,.mdst,.wdst,.ebranch,.rs1,.rs2,.wrE,.wrM,.wrW,.i_wait,.d_wait,.stallM,.stallE,.flushM
 	);
 	pcreg pcreg(
 		.clk,.reset,
 		.pc,
 		.pc_nxt,
-		.en(~stallF),
+		.en(~(stallF)),
 		.flush('0)
 	);
 	assign ireq.addr=pc;
@@ -67,7 +70,7 @@ module core
 		.pcplus4(pc+4),
 		.pc_selected(pc_nxt),
 		.pc_branch(dataE_nxt.target),
-		.branch_taken(dataM_nxt.ctl.pcSrc)
+		.branch_taken(dataE_nxt.ctl.pcSrc)
 	);
 	fetch fetch(
 		.raw_instr,
@@ -101,7 +104,7 @@ module core
 		.clk,.reset,
 		.in(dataD_nxt),
 		.out(dataD),
-		.en(1),
+		.en(~(stallE)),
 		.flush(flushD)
 	);
 	execute execute(
@@ -109,7 +112,7 @@ module core
 		.dataE(dataE_nxt)
 	);
 	assign stallM = dreq.valid && ~dresp.data_ok;
-	assign flushW = dreq.valid && ~dresp.data_ok;
+	assign flushM = dreq.valid && ~dresp.data_ok;
 
 	pipereg #(.T(execute_data_t)) mreg(
 		.clk,.reset,

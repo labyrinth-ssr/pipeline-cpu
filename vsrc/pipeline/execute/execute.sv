@@ -55,7 +55,7 @@ u64 pcAdded;
     assign dataE.sextimm=sextimm;
     assign dataE.srcb=dataD.srcb;
     assign dataE.dst=dataD.rd;
-    assign dataE.ctl=dataD.ctl;
+    // assign dataE.ctl=dataD.ctl;
     assign dataE.pc=dataD.pc;
     assign dataE.valid=dataD.valid;
     always_comb begin

@@ -51,6 +51,9 @@ always_comb begin
                     unique case (f6)
                         F6_LOGIC:ctl.alufunc=RS;
                         F6_ARITH:ctl.alufunc=SRS;
+                        default:begin
+                            
+                        end
                     endcase
                 end
                 default:begin
@@ -69,12 +72,16 @@ always_comb begin
                     unique case(f6)
                     F6_LOGIC:ctl.alufunc=RSW;
                     F6_ARITH:ctl.alufunc=SRSW;
+                    default:begin
+                    end
                 endcase
                 end
                 F3_SLLW:begin
                     ctl.alufunc=LS;
                     ctl.extAluOut='1;
                 end
+                default:begin
+                    end
             endcase
         end
         F7_RTYPE:begin
@@ -114,6 +121,9 @@ always_comb begin
                     unique case (f6)
                         F6_LOGIC:ctl.alufunc=RS;
                         F6_ARITH:ctl.alufunc=SRS;
+                        default:begin
+                        
+                    end
                     endcase
                 end
                 default:begin
@@ -133,13 +143,16 @@ always_comb begin
                     unique case(rf7)
                     F7_R_ADD:ctl.alufunc=ADD;
                     F7_R_SUB:ctl.alufunc=SUB;
+                    default:begin
+                    end
                 endcase
-
                 end
                 F3_SRW:begin
                     unique case(f6)
                     F6_LOGIC:ctl.alufunc=SRLW;
                     F6_ARITH:ctl.alufunc=SRAW;
+                     default:begin
+                    end
                 endcase
 
                 end
@@ -147,6 +160,8 @@ always_comb begin
                     ctl.alufunc=SLLW;
                     ctl.extAluOut='1;
                 end
+                 default:begin
+                    end
             endcase
         end
         F7_JAL:begin
@@ -209,14 +224,29 @@ always_comb begin
             ctl.wbSelect=2'b01;
             ctl.memRw=2'b01;
             ctl.mem_unsigned=f3[2];
-            ctl.msize=f3[1:0];
+            unique case (f3[1:0])
+                2'b00:ctl.msize=MSIZE1;
+                2'b01:ctl.msize=MSIZE2;
+                2'b10:ctl.msize=MSIZE4;
+                2'b11:ctl.msize=MSIZE8;
+                default:begin
+                end
+            endcase
+//            ctl.msize={1'b0,f3[1:0]};
         end
         F7_SD:begin
             ctl.op=STYPE;
             ctl.selectB=1'b1;
             ctl.alufunc=ADD;
             ctl.memRw=2'b10;
-            ctl.msize=f3[1:0];
+            unique case (f3[1:0])
+                2'b00:ctl.msize=MSIZE1;
+                2'b01:ctl.msize=MSIZE2;
+                2'b10:ctl.msize=MSIZE4;
+                2'b11:ctl.msize=MSIZE8;
+                default:begin
+                end
+            endcase
         end
     endcase
 end
