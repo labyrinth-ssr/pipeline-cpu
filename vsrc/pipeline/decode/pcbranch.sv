@@ -16,8 +16,9 @@ module pcbranch
         input u64 srca,srcb
 );
     always_comb begin
+        pcSrc='0;
         if (branch!=NO_BRANCH) begin
-            pcSrc=(branch==BRANCH_BEQ&&srca==srcb)||(branch==BRANCH_BNE&&srca!=srcb)||(branch==BRANCH_BLT&&$signed(srca)<$signed(srcb))||(branch==BRANCH_BGE&&$signed(srca)>=$signed(srcb))||(branch==BRANCH_BLTU&&srca<srcb)||(branch==BRANCH_BGEU&&srca>=srcb);
+            pcSrc=(branch==BRANCH_BEQ&&srca==srcb)||(branch==BRANCH_BNE&&srca!=srcb)||(branch==BRANCH_BLT&&$signed(srca)<$signed(srcb))||(branch==BRANCH_BGE&&$signed(srca)>=$signed(srcb))||(branch==BRANCH_BLTU&&srca<srcb)||(branch==BRANCH_BGEU&&srca>=srcb)||(branch==J);
         end
     end
 

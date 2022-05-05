@@ -15,7 +15,7 @@ import pipes::*;(
     input creg_addr_t ra1,ra2,ra1E,ra2E,
     input wrE,wrM,wrW,
     input memwrE,memwrM,
-    output forwardaD,forwardbD,
+    output u1 forwardaD,forwardbD,
     output u2 forwardaE,forwardbE
 );
 u1 branch_stall,lwstall;
@@ -35,7 +35,8 @@ u1 branch_stall,lwstall;
             end
         end
         else begin
-             branch_stall=dbranch && ((wrE&&(edst==ra1||edst==ra2))||(memwrM&& (mdst==ra1||mdst==ra2)) );
+            flushD=dbranch;
+            branch_stall=dbranch && ((wrE&&(edst==ra1||edst==ra2))||(memwrM&& (mdst==ra1||mdst==ra2)) );
             lwstall=memwrE && (edst==ra1||edst==ra2);
             stallD=lwstall || branch_stall;
             stallF=stallD;
