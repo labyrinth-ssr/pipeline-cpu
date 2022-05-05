@@ -15,6 +15,8 @@
 `include "pipeline/regfile/pipereg.sv"
 `include "pipeline/regfile/pcreg.sv"
 `include "pipeline/hazard/hazard.sv"
+`include "pipeline/mux/mux2.sv"
+
 `else
 //`include "include/interface.svh"
 `endif
@@ -31,16 +33,17 @@ module core
 	/* TODO: Add your pipeline here. */
 	u64 pc,pc_nxt;
 	u32 raw_instr;
-	u1 stallF,stallD,flushF,flushD,flushE,flushM,stallM,stallE;
+	u1 stallF,stallD,flushD,flushE,flushM,flushW,stallM,stallE;
+	u1 forwardaD,forwardbD;
+	u2 forwardaE,forwardbE;
 	u1 i_wait,d_wait;
     creg_addr_t edst,mdst,wdst;
 	assign edst=dataE_nxt.dst;
 	assign mdst=dataM_nxt.dst;
 	assign wdst=dataW.wa;
-    u1 ebranch;
-	assign ebranch=dataE_nxt.ctl.pcSrc;
-	// assign mbranch=dataM_nxt.ctl.pcSrc;
-    creg_addr_t rs1,rs2;
+    // u1 ebranch;
+	// assign ebranch=dataE_nxt.ctl.pcSrc;
+    creg_addr_t ra1,ra2;
     u1 wrE,wrM,wrW;
 	assign wrE=dataE_nxt.ctl.regWrite;
 	assign wrM=dataM_nxt.ctl.regWrite;
@@ -48,7 +51,7 @@ module core
 	assign i_wait=ireq.valid && ~iresp.data_ok;
 	assign d_wait=dreq.valid && ~dresp.data_ok;
 	hazard hazard(
-		.stallF,.stallD,.flushF,.flushD,.flushE,.edst,.mdst,.wdst,.ebranch,.rs1,.rs2,.wrE,.wrM,.wrW,.i_wait,.d_wait,.stallM,.stallE,.flushM
+		.stallF,.stallD,.flushD,.flushE,.flushM,.edst,.mdst,.wdst,.ra1,.ra2,.wrE,.wrM,.wrW,.i_wait,.d_wait,.stallM,.stallE,.flushW,.memwrE(dataD.ctl.wbSelect==2'b1),.memwrM(dataE.ctl.wbSelect==2'b1),.forwardaE,.forwardbE,.forwardaD,.forwardbD,.dbranch(dataD_nxt.pcSrc),.ra1E(dataD.ra1),.ra2E(dataD.ra2)
 	);
 	pcreg pcreg(
 		.clk,.reset,
@@ -64,13 +67,13 @@ module core
 	decode_data_t dataD,dataD_nxt;
 	execute_data_t dataE,dataE_nxt;
 	memory_data_t dataM,dataM_nxt;
-	writeback_data_t dataW,dataW_nxt;
+	writeback_data_t dataW;
 
 	pcselect pcselect(
 		.pcplus4(pc+4),
 		.pc_selected(pc_nxt),
-		.pc_branch(dataE_nxt.target),
-		.branch_taken(dataE_nxt.ctl.pcSrc)
+		.pc_branch(dataD_nxt.target),
+		.branch_taken(dataD_nxt.pcSrc)
 	);
 	fetch fetch(
 		.raw_instr,
@@ -82,18 +85,19 @@ module core
 		.in(dataF_nxt),
 		.out(dataF),
 		.en(~stallD),
-		.flush(flushF)
+		.flush(flushD)
 	);
 	word_t rd1,rd2;
 	decode decode(
 		.dataF(dataF),
 		.dataD(dataD_nxt),
-		.rs1,.rs2,.rd1,.rd2
+		.ra1,.ra2,.rd1,.rd2,
+		.aluoutM(dataE.alu_out),.forwardaD,.forwardbD
 	);
 	regfile regfile(
 		.clk, .reset,
-		.rs1,
-		.rs2,
+		.ra1,
+		.ra2,
 		.rd1,//取出的数�?
 		.rd2,
 		.wvalid(dataW.ctl.regWrite),
@@ -105,21 +109,23 @@ module core
 		.in(dataD_nxt),
 		.out(dataD),
 		.en(~(stallE)),
-		.flush(flushD)
+		.flush(flushE)
 	);
 	execute execute(
 		.dataD(dataD),
-		.dataE(dataE_nxt)
+		.dataE(dataE_nxt),
+		.forwardaE,.forwardbE,
+		.aluoutM(dataE.alu_out),.resultW(dataW.wd)
 	);
 	assign stallM = dreq.valid && ~dresp.data_ok;
-	assign flushM = dreq.valid && ~dresp.data_ok;
+	assign flushW = dreq.valid && ~dresp.data_ok;
 
 	pipereg #(.T(execute_data_t)) mreg(
 		.clk,.reset,
 		.in(dataE_nxt),
 		.out(dataE),
 		.en(~stallM),
-		.flush(flushE)
+		.flush(flushM)
 	);
 	memory memory(
 		.dataE(dataE),
@@ -132,7 +138,7 @@ module core
 		.in(dataM_nxt),
 		.out(dataM),
 		.en(1),
-		.flush(flushM)
+		.flush(flushW)
 	);
 
 	writeback writeback (

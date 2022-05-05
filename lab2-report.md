@@ -1,4 +1,4 @@
-# lab3实验报告
+# lab2（握手总线）实验报告
 20302010059-孙姝然
 ## 改动
 1. 更多指令：主要修改了decoder和execute。将原本memory阶段的beq跳转放到execute阶段。rtype和itype指令的新增主要通过在alu中添加alufunc完成。

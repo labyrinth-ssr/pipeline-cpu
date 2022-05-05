@@ -46,7 +46,7 @@ writedata writedata(.addr(dataE.alu_out[2:0]),._wd(dataE.srcb),.msize(dataE.ctl.
 
     assign dataM.dst=dataE.dst;
     assign dataM.sextimm=dataE.sextimm;
-    assign dataM.target=dataE.target;
+    // assign dataM.target=dataE.target;
 
     assign dataM.alu_out=dataE.alu_out;
     assign dataM.valid=dataE.valid;
