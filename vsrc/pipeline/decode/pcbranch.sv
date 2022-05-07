@@ -12,7 +12,7 @@ module pcbranch
 	import common::*;
 	import pipes::*;(
         input branch_t branch,
-        output pcSrc,
+        output u1 pcSrc,
         input u64 srca,srcb
 );
     always_comb begin

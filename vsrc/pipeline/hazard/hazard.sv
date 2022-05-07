@@ -29,9 +29,10 @@ u1 branch_stall,lwstall;
         end else if (i_wait) begin
             stallF='1;flushD='1;
             if (dbranch) begin
-                stallD='1;
-                flushD='0;
-                flushE='1;
+            stallF='0;flushD='1;
+                // stallD='1;
+                // flushD='0;
+                // flushE='1;
             end
         end
         else begin
