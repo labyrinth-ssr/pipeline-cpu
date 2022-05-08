@@ -65,7 +65,7 @@ parameter F7_R_ADD=7'b0000000;
 parameter F7_R_SUB=7'b0100000;
 
 typedef enum u3{
-	NO_BRANCH,BRANCH_BEQ,BRANCH_BNE,BRANCH_BLT,BRANCH_BGE,BRANCH_BLTU,BRANCH_BGEU
+	NO_BRANCH,BRANCH_BEQ,BRANCH_BNE,BRANCH_BLT,BRANCH_BGE,BRANCH_BLTU,BRANCH_BGEU,J
 } branch_t;
 
 typedef struct packed {
@@ -87,7 +87,7 @@ typedef struct packed {
 	alufunc_t alufunc;
 	branch_t branch;
 	u2 memRw;
-	u1 pcSrc,regWrite,selectA,selectB,pcTarget,extAluOut,mem_unsigned;
+	u1 regWrite,selectA,selectB,pcTarget,extAluOut,mem_unsigned;
 	u2 wbSelect;//left:1,right:2
 	msize_t msize;
 
@@ -98,8 +98,11 @@ typedef struct packed {
 	u32 raw_instr;
 	word_t srca,srcb;
 	control_t ctl;
-	creg_addr_t rd;//2^5=32 assign the reg to be written
+	creg_addr_t rd,ra1,ra2;//2^5=32 assign the reg to be written
 	u64 pc;
+	u64 sextimm;
+	u64 target;
+	u1 pcSrc;
 } decode_data_t;
 
 typedef struct packed {
@@ -108,7 +111,7 @@ typedef struct packed {
 	control_t ctl;
 	creg_addr_t dst;
 	u64 alu_out;
-	u64 target;
+	// u64 target;
 	u64 sextimm;
 	word_t srcb;
 
@@ -121,7 +124,7 @@ typedef struct packed {
 	control_t ctl;
 	creg_addr_t dst;
 	u64 sextimm;
-	u64 target;
+	// u64 target;
 	word_t rd;
 } memory_data_t;
 

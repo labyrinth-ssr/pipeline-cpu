@@ -12,7 +12,7 @@ module regfile
 	parameter WRITE_PORTS = AREG_WRITE_PORTS
 ) (
 	input logic clk, reset,
-	input creg_addr_t [READ_PORTS-1:0] rs1, rs2,
+	input creg_addr_t [READ_PORTS-1:0] ra1, ra2,
 	output u64 [READ_PORTS-1:0] rd1, rd2,
 	input creg_addr_t [WRITE_PORTS-1:0] wa,
 	input u1 [WRITE_PORTS-1:0] wvalid,
@@ -21,8 +21,8 @@ module regfile
 	u64 [31:0] regs, regs_nxt;
 
 	for (genvar i = 0; i < READ_PORTS; i++) begin
-		assign rd1[i] = regs[rs1[i]];
-		assign rd2[i] = regs[rs2[i]];
+		assign rd1[i] = regs[ra1[i]];
+		assign rd2[i] = regs[ra2[i]];
 	end
 
 	always_ff @(posedge clk) begin

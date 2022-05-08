@@ -9,35 +9,62 @@
 module hazard
 import common::*;
 import pipes::*;(
-    output u1 stallF,stallD,flushF,flushD,flushE,stallM,flushM,stallE,
+    output u1 stallF,stallD,flushD,flushE,flushM,stallM,flushW,stallE,
     input creg_addr_t edst,mdst,wdst,
-    input ebranch,i_wait,d_wait,
-    input creg_addr_t rs1,rs2,
-    input wrE,wrM,wrW
+    input dbranch,i_wait,d_wait,
+    input creg_addr_t ra1,ra2,ra1E,ra2E,
+    input wrE,wrM,wrW,
+    input memwrE,memwrM,
+    output u1 forwardaD,forwardbD,
+    output u2 forwardaE,forwardbE
 );
+u1 branch_stall,lwstall;
+
     always_comb begin
-        stallF='0;stallD='0;flushF='0;flushD='0;flushE='0;
-        stallM='0;flushM='0;stallE='0;
+        stallF='0;stallD='0;flushD='0;flushE='0;flushM='0;
+        stallM='0;flushW='0;stallE='0;branch_stall='0;lwstall='0;
+        forwardaE='0;forwardbE='0;forwardaD='0;forwardbD='0;
         if(d_wait) begin
-            stallM='1;flushM='1;stallF='1;flushF='1;
+            stallM='1;flushW='1;stallF='1;flushD='1;
         end else if (i_wait) begin
-            stallF='1;flushF='1;
-            if (ebranch) begin
-                stallE='1;
-                flushE='1;
+            stallF='1;flushD='1;
+            if (dbranch) begin
+            stallF='0;flushD='1;
+                // stallD='1;
+                // flushD='0;
+                // flushE='1;
             end
         end
-        else if (ebranch) begin
-            flushD='1;flushF='1;
-        end else if (wrE&&(edst==rs1||edst==rs2)) begin
-            stallD='1;stallF='1;flushD='1;
-        end else if (wrM&&(mdst==rs1||mdst==rs2)) begin
-            stallD='1;stallF='1;flushD='1;
-        end else if (wrW&&(wdst==rs1||wdst==rs2)) begin
-            stallD='1;stallF='1;flushD='1;
-        end else begin
-            stallF='0;stallD='0;flushF='0;flushD='0;flushE='0;
+        else begin
+            flushD=dbranch;
+            branch_stall=dbranch && ((wrE&&(edst==ra1||edst==ra2))||(memwrM&& (mdst==ra1||mdst==ra2)) );
+            lwstall=memwrE && (edst==ra1||edst==ra2);
+            stallD=lwstall || branch_stall;
+            stallF=stallD;
+            flushE=stallD;
+            if(ra1E!=0) begin
+                if (ra1E==mdst && wrM ) forwardaE=2'b10;
+                else if (ra1E==wdst && wrW ) forwardaE=2'b01;
+            end
+            if(ra2E!=0) begin
+                if (ra2E==mdst && wrM ) forwardbE=2'b10;
+                else if (ra2E==wdst && wrW ) forwardbE=2'b01;
+            end
+            forwardaD=(ra1!=0&&ra1==mdst && wrM);
+            forwardbD=(ra2!=0&&ra2==mdst && wrM);
+
         end
+        // if (ebranch) begin
+        //     flushE='1;flushD='1;
+        // end else if (wrE&&(edst==ra1||edst==ra2)) begin
+        //     stallD='1;stallF='1;flushE='1;
+        // end else if (wrM&&(mdst==ra1||mdst==ra2)) begin
+        //     stallD='1;stallF='1;flushE='1;
+        // end else if (wrW&&(wdst==ra1||wdst==ra2)) begin
+        //     stallD='1;stallF='1;flushE='1;
+        // end else begin
+        //     stallF='0;stallD='0;flushD='0;flushE='0;flushM='0;
+        // end
     end
 endmodule
 

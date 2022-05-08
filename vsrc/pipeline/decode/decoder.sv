@@ -167,16 +167,17 @@ always_comb begin
         F7_JAL:begin
             ctl.op=JTYPE;
             ctl.regWrite=1'b1;
-            ctl.pcSrc=1'b1;
             ctl.wbSelect=2'b10;
+            ctl.branch=J;
         end
         F7_JALR:begin
             ctl.pcTarget=1'b1;
             ctl.op=ITYPE;
             ctl.regWrite=1'b1;
-            ctl.pcSrc=1'b1;
             ctl.wbSelect=2'b10;
             ctl.selectB=1'b1;
+            ctl.branch=J;
+
         end
         F7_BTYPE:begin
             ctl.op=BTYPE;
