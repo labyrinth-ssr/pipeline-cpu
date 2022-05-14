@@ -16,6 +16,7 @@
 `include "pipeline/regfile/pcreg.sv"
 `include "pipeline/hazard/hazard.sv"
 `include "pipeline/mux/mux2.sv"
+`include "cache/ICache.sv"
 
 `else
 //`include "include/interface.svh"
@@ -62,6 +63,8 @@ module core
 	);
 	assign ireq.addr=pc;
 	assign ireq.valid=1'b1;
+
+	ICache icache(,.clk,.reset,.ireq,.iresp,.)
 	assign raw_instr=iresp.data;
 	fetch_data_t dataF,dataF_nxt;
 	decode_data_t dataD,dataD_nxt;

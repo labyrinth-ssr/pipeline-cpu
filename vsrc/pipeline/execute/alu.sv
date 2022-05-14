@@ -4,6 +4,10 @@
 `ifdef VERILATOR
 `include "include/common.sv"
 `include "include/pipes.sv"
+`include "pipeline/execute/alu/div.sv"
+`include "pipeline/execute/alu/multi.sv"
+`include "pipeline/execute/alu/hilo.sv"
+
 `else
 
 `endif
@@ -16,7 +20,7 @@ module alu
 	output u64 c
 	// output alu_zero
 );
-u32 shift;
+	u32 shift;
 	always_comb begin
 		c = '0;shift='0;
 		unique case(alufunc)
@@ -42,9 +46,9 @@ u32 shift;
 				c={{32{shift[31]}},shift};
 			end
 			SRAW:c={{32{a[31]}},$signed(a[31:0]) >>> b[4:0]};
-
 			default: begin
 			end
+
 		endcase
 	end
 	

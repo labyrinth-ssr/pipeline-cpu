@@ -64,3 +64,38 @@ lwstallD: memtoRegE &
 forward 两个来源。
 
 跳转问题：多取了一条指令，草不知道发生了什么但是成功了
+
+    //读取过程：
+    // assign data = data_from_sets[get_index(addr)];
+    //一个cacheline的index，
+    //行为：input addr，get index，找到cacheline[index],比对valid（遍历associativity），
+    //如果valid全0，miss，ram交互（fetch）
+    //先看valid后看tag，若hit，返回数据
+
+woc，看起来cache是用ram实现的？
+    //关于dreq.addr，64位地址，每个地址里面存了1个byte，取的时候以word为单位，so<<3，start就是可以双字
+    
+    // for (genvar i = 0; i < SET_NUM; i++) begin 
+    //     cache_line_t cache_line_group [ASSOCIATIVITY-1:0];
+    //     always_comb begin
+    //         if (i==get_index(dreq.addr)) begin
+    //             line_from_cache=cache_line_group;
+    //         end
+    //     end
+    // end 
+
+    // for (genvar i = 0;i<ASSOCIATIVITY ; i++) begin
+    //     always_comb begin
+    //         if (line_from_cache.meta.valid&&(line_from_cache.meta.tag==get_tag(dreq.addr))) begin
+    //             hit='1;
+    //             cache_data=line_from_cache.data[get_offset(dreq.addr)];
+    //         end
+    //     end
+    // end
+    typedef struct packed {
+        meta_t meta,
+        u64 data [WORDS_PER_LINE-1:0],
+        u1 dirty,
+        index_t counter  
+    } cache_line_t;
+    cache_line_t line_from_cache [ASSOCIATIVITY-1:0];
