@@ -23,10 +23,17 @@ module DCache
 
 `ifndef REFERENCE_CACHE
 	/* TODO: Lab3 Cache */
-
+    dbus_req_t req;
+    localparam DATA_BITS = $bits(word_t)*WORDS_PER_LINE;
+    localparam ASOC_BITS = $clog2(ASSOCIATIVITY);
+    localparam DATA_INDEX_BITS = $clog2(SET_NUM*WORDS_PER_LINE*ASSOCIATIVITY);
     localparam type state_t = enum logic[2:0] {
-        IDLE,INIT,FETCH,READY,FLUSH
+        IDLE,INIT,FETCH,READY,FLUSH,UNCACHE,RESET
     };
+        localparam type offset_t = logic [OFFSET_BITS-1:0];
+    localparam type index_t = logic [INDEX_BITS-1:0];
+    localparam type tag_t = logic [TAG_BITS-1:0];
+    localparam type asoc_index_t = logic [ASOC_BITS-1:0];
     localparam OFFSET_BITS = $clog2(WORDS_PER_LINE);
     localparam INDEX_BITS = $clog2(SET_NUM);
     localparam TAG_BITS = 64 - 3- INDEX_BITS - OFFSET_BITS; /* Maybe 32, or smaller */
@@ -36,84 +43,99 @@ module DCache
         tag_t tag;
     } meta_t;
     localparam META_BITS = $bits(meta_t);
-    localparam DATA_BITS = $bits(word_t)*WORDS_PER_LINE;
-    localparam ASOC_BITS = $clog2(ASSOCIATIVITY);
-    localparam DATA_INDEX_BITS = $clog2(SET_NUM*WORDS_PER_LINE*ASSOCIATIVITY);
+    
 
-    localparam type offset_t = logic [OFFSET_BITS-1:0];
-    localparam type index_t = logic [INDEX_BITS-1:0];
-    localparam type tag_t = logic [TAG_BITS-1:0];
-    localparam type asoc_index_t = logic [ASOC_BITS-1:0];
+
     localparam type rmeta_t = logic [$bits(meta_t) * ASSOCIATIVITY-1:0];
-    localparam type rdata_t = logic [$bits(word_t) * ASSOCIATIVITY*WORDS_PER_LINE-1:0];
-    localparam type line_data_t = logic [$bits(word_t) * WORDS_PER_LINE-1:0];
+    localparam type data_index_t = logic [DATA_INDEX_BITS-1:0];
 
-    function offset_t get_offset(addr_t addr)//MSIZE8，对应一个word
-    return addr[3+OFFSET_BITS-1:3];
+    function offset_t get_offset(addr_t addr);//MSIZE8，对应一个word
+        return addr[3+OFFSET_BITS-1:3];
     endfunction
-    function index_t get_index(addr_t addr)
+    function index_t get_index(addr_t addr);
     return addr[3+INDEX_BITS+OFFSET_BITS-1:OFFSET_BITS+3];
     endfunction
-    function tag_t get_tag(addr_t addr)
+    function tag_t get_tag(addr_t addr);
     return addr[3+INDEX_BITS+OFFSET_BITS+TAG_BITS-
     1:3+INDEX_BITS+OFFSET_BITS];
     endfunction
-
     struct packed {
         logic en;
-        logic [ASSOCIATIVITY-1:0] strobe;
+        strobe_t strobe;
         u64   wdata;
-        rmeta_t wmeta;
-    } ram;
-
+    } data_ram;
+        struct packed {
+        logic en;
+        logic [ASSOCIATIVITY-1:0] strobe;
+        rmeta_t wdata;
+        } meta_ram;
     state_t state;
     index_t counter;
-    u1 hit;
+    u1 hit,is_full,ram_reset;
     u64 cache_rdata;
-    index_t ram_index;
+    index_t set_index;
     u64 data_rdata;
     rmeta_t meta_rdata;
-    assign ram_index=get_index(req.addr);
-    line_data_t line_rdata;
-    line_data_t line_wdata;
+    meta_t [ASSOCIATIVITY-1:0] meta_rdata_arr;
+    meta_t [ASSOCIATIVITY-1:0] meta_wdata_arr;
+
     logic [ASSOCIATIVITY-1:0] meta_signal;
-    asoc_index_t last_empty;
+    logic [ASSOCIATIVITY-1:0] valid_signal;
+
+    asoc_index_t hit_index,empty_index;
+    asoc_index_t replace_index;
+
     u1 fetched;
     offset_t offset;
+    data_index_t data_index;
+
+    assign set_index=state==IDLE?counter: get_index(req.addr);
+    
+    assign meta_rdata_arr[1]=meta_rdata[META_BITS*2-1:META_BITS];
+    assign meta_rdata_arr[0]=meta_rdata[META_BITS-1:0];
+
+    // assign =set_index*(ASSOCIATIVITY*WORDS_PER_LINE)+assoc_index*WORDS_PER_LINE+offset;
 
     //ready:表示数据已获得。两种情况：cresp last 或 hit
     //每次fetch 填满一个line 12word
     // CBus driver
     //与内存交互时，从内存取：12word，写回内存：12word
     //hit:meta符合
-    assign creq.valid    = state == FETCH || state == FLUSH;
-    assign creq.is_write = state == FLUSH;
-    assign creq.size     = MSIZE8;
+    assign creq.valid    = state == FETCH || state == FLUSH ||state == UNCACHE ;
+    assign creq.is_write = state == FLUSH ||state == UNCACHE;
+    assign creq.size     = state == UNCACHE? req.size:MSIZE8;
     assign creq.addr     = req.addr;
-    assign creq.strobe   = 8'b11111111;
-    assign creq.data     = ram_rdata;
-    assign creq.len      = MLEN16;//word_per_line
-	assign creq.burst	 = AXI_BURST_INCR;
+    assign creq.strobe   = state == UNCACHE? req.strobe: 8'b11111111; 
+    assign creq.data     = state == UNCACHE?req.data: data_rdata;
+    assign creq.len      = state ==UNCACHE?MLEN1:MLEN16;//word_per_line
+	assign creq.burst	 = state ==UNCACHE?AXI_BURST_FIXED:AXI_BURST_INCR;
+    assign cache_rdata=data_rdata;
 
     assign dresp.data=cache_rdata;
-    assign dresp.data_ok = state == READY;
+    assign dresp.data_ok = hit;
+    assign dresp.addr_ok = state == INIT;
 
-    word_t save_fetched_data_line[WORDS_PER_LINE-1:0];
-    always_ff @(posedge clk ) begin
-        save_fetched_data_line[offset]<=cresp.data;
-    end 
-
-    always_ff @(posedge clk)
+    always_ff @(posedge clk) begin
     if (~reset) begin
         unique case (state)
         IDLE: if (dreq.valid) begin
-            state  <= INIT;
+            state  <= dreq.addr[31] == 0?UNCACHE:INIT;
             req    <= dreq;
             fetched<='0;
             offset<='0;
         end
+        UNCACHE: if (cresp.ready) begin
+            state<=cresp.last ?IDLE:UNCACHE;
+        end
         INIT:begin
-            state<=hit?IDLE:FETCH;
+            if (hit) begin
+                state<=IDLE;
+            end else if (is_full) begin
+                state<=FLUSH;
+            end else begin
+                state<=FETCH;
+            end
+            replace_index<=empty_index;
         end
         FETCH: if (cresp.ready) begin
             offset <= offset + 1;
@@ -128,55 +150,75 @@ module DCache
             state  <= IDLE;
         end
         FLUSH: if (cresp.ready) begin
-            state  <= cresp.last ? IDLE : FLUSH;
+            state  <= cresp.last ? FETCH : FLUSH;
             offset <= offset + 1;
         end
+        default:;
         endcase
     end else begin
-        state <= IDLE;
-        offset='0;
+        {req, offset} <= '0;
+        counter<= counter==7?0:(counter+1);
+        ram_reset<=reset;
     end
-
+    end
+    // meta_t rmeta_ele;
+    u32 temp;
     always_comb begin
-        ram = '0;line_wdata='0;hit='0;line_rdata='0;meta_signal='0;cache_rdata='0;
+        meta_ram = '0;data_ram='0; hit='0;meta_signal='0;data_index='0;empty_index='0;meta_ram.wdata=meta_rdata;valid_signal='0;is_full='0;temp='0;meta_wdata_arr[1]=meta_rdata[META_BITS*2-1:META_BITS];
+        meta_wdata_arr[0]=meta_rdata[META_BITS-1:0];
     unique case (state)
-    last_empty=0;
+    IDLE:begin
+        if (ram_reset) begin
+            meta_ram.en='1;
+        end
+    end
     INIT: begin
         if (fetched) begin
-            ram.wdata[(last_empty+1)*DATA_BITS-1:last_empty*DATA_BITS]=save_fetched_data_line;
-            ram.wmeta[(last_empty+1)*META_BITS-1:last_empty*META_BITS].valid='1;
-            ram.wmeta[(last_empty+1)*META_BITS-1:last_empty*META_BITS].tag=get_tag(req.addr);
-            ram.strobe[last_empty]=1'b1;
-            cache_rdata=save_fetched_data_line[get_offset(req.addr)];
+            meta_rdata_arr[replace_index].valid='1;
+            meta_rdata_arr[replace_index].tag=get_tag(req.addr);
+            meta_ram.strobe[replace_index]=1'b1;
+            meta_ram.en='1;
+            data_ram.en='1;
+            data_ram.strobe=req.strobe;
+            data_index=set_index*(ASSOCIATIVITY*WORDS_PER_LINE)+replace_index*WORDS_PER_LINE+{4'b0,offset};
+            data_ram.wdata=req.data;
             hit='1;
-        end else begin
-            for (genvar  i=0; i<ASSOCIATIVITY; i++) begin
-            meta_signal[i]=meta_rdata[(i+1)*META_BITS-1:i*META_BITS].valid&(meta_rdata[(i+1)*META_BITS-1:i*META_BITS].tag==get_tag(req.addr));
-            if (meta_signal[i]) begin
-                ram.en='1;
-                line_rdata=data_rdata[(i+1)*DATA_BITS-1:i*DATA_BITS];
-                line_wdata=line_rdata;
-                for (int j = 0; j < 8; j++)
-                    if (req.strobe[j])
-                        line_wdata[get_offset(req.addr)][j] = req.data[j];
-                ram.wdata[(i+1)*DATA_BITS-1:i*DATA_BITS]=line_wdata;
-                ram.wmeta[(i+1)*META_BITS-1:i*META_BITS].dirty='1;
-                if (~(|req.strobe)) begin
-                    ram.strobe[i]=1'b1;
-                end
-                cache_rdata=line_rdata[get_offset(req.addr)];
-            end else if (~meta_rdata[(i+1)*META_BITS-1:i*META_BITS].valid) begin
-                last_empty=i;
+            if (~(|req.strobe)) begin
+            meta_rdata_arr[replace_index].dirty='1;
             end
+        end else begin
+            for (int  i=0; i<ASSOCIATIVITY; i++) begin
+            meta_signal[i]=meta_rdata_arr[i].valid&(meta_rdata_arr[i].tag==get_tag(req.addr));
+            valid_signal[i]=meta_rdata_arr[i].valid;
+            if (meta_signal[i]) begin      
+                meta_ram.en='1;
+                data_ram.en='1;
+                data_ram.strobe=req.strobe;
+                data_index=set_index*(ASSOCIATIVITY*WORDS_PER_LINE)+i[0]*WORDS_PER_LINE+{4'b0,offset};
+                data_ram.wdata=req.data;
+                if (~(|req.strobe)) begin
+                    meta_ram.strobe[i]=1'b1;
+                end
+                meta_wdata_arr[i].dirty='1;
+                meta_ram.wdata={meta_wdata_arr[0],meta_wdata_arr[1]};
+            end else if (~meta_rdata_arr[i].valid) begin
+                empty_index=i[0];
+            end 
         end
         hit=|meta_signal;
+        is_full=|valid_signal;
+        if ((~hit)) begin
+            data_index=set_index*(ASSOCIATIVITY*WORDS_PER_LINE)+empty_index*WORDS_PER_LINE+{4'b0,offset};
+        end 
         end
     end
     FETCH: begin
-        ram.strobe = req.strobe;
-        ram.wdata  = cresp.data;
+        data_index=set_index*(ASSOCIATIVITY*WORDS_PER_LINE)+replace_index*WORDS_PER_LINE+{4'b0,offset};
+        data_ram.strobe = 8'b11111111;
+        data_ram.wdata  = cresp.data;
+        data_ram.en=1;
     end
-    default: ram = '0;
+    default: ;
     endcase
     end
 
@@ -185,11 +227,11 @@ module DCache
 		.DATA_WIDTH(64),
 		.BYTE_WIDTH(8),
 		.READ_LATENCY(0)
-    ) data_ram (
-        .clk(clk), .en(ram.en),
-        .addr(ram_index),
-        .strobe(ram.strobe),
-        .wdata(ram.wdata),
+    ) ram_data (
+        .clk(clk), .en(data_ram.en),
+        .addr(data_index),
+        .strobe(data_ram.strobe),
+        .wdata(data_ram.wdata),
         .rdata(data_rdata)
     );
 
@@ -198,11 +240,11 @@ module DCache
 		.DATA_WIDTH($bits(meta_t) * ASSOCIATIVITY),//meta读取,associavity个
 		.BYTE_WIDTH($bits(meta_t)),
 		.READ_LATENCY(0)
-    ) meta_ram (
-        .clk(clk), .en(ram.en),
-        .addr(ram_index),
-        .strobe(ram.strobe),
-        .wdata(ram.wmeta),
+    ) ram_meta(
+        .clk(clk), .en(meta_ram.en),
+        .addr(set_index),
+        .strobe(meta_ram.strobe),
+        .wdata(meta_ram.wdata),
         .rdata(meta_rdata)
     );
 

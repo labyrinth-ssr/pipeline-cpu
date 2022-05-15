@@ -99,3 +99,9 @@ woc，看起来cache是用ram实现的？
         index_t counter  
     } cache_line_t;
     cache_line_t line_from_cache [ASSOCIATIVITY-1:0];
+                // line_rdata=data_rdata[(i+1)*DATA_BITS-1:i*DATA_BITS];
+                // line_wdata=line_rdata;
+                // for (int j = 0; j < 8; j++)
+                //     if (req.strobe[j])
+                //         line_wdata[get_offset(req.addr)][j] = req.data[j];
+                // ram.wdata[(i+1)*DATA_BITS-1:i*DATA_BITS]=line_wdata;
