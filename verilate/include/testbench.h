@@ -186,11 +186,10 @@ public:
 	{
 		auto got = DBus::load(addr, size);
 		auto expected = ref->load(addr, size);
-
 		asserts(
 			got == expected,
 			"different outputs from RTL model and reference model."
-			" expected = %016x, got = %016x",
+			" expected = %016lx, got = %016lx",
 			expected, got
 		);
 		ref->check_internal();
@@ -200,6 +199,7 @@ public:
 
 	void store(addr_t addr, AXISize size, word_t strobe, word_t data)
 	{
+        // printf("%16x\n",data);
 		DBus::store(addr, size, strobe, data);
 		ref->store(addr, size, strobe, data);
 		ref->check_internal();

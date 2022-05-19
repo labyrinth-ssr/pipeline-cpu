@@ -79,7 +79,7 @@ WITH SKIP{
 
 // if your cache does not support partial writes, you can simply skip
 // this test by marking it with SKIP.
-WITH /*SKIP*/{
+WITH {
 	// S iterates over 0b0000 to 0b1111.
 	std::vector<word_t> a;  // to store the correct value
 	a.resize(16);
@@ -101,7 +101,7 @@ WITH /*SKIP*/{
 
 // this is a more detailed example of DBus.
 // add DEBUG to see all memory operations.
-WITH /*TRACE*/ /*DEBUG*/{
+WITH /* TRACE DEBUG */{
 	{
 		dbus->store(0xc, MSIZE4, 0b1111, 0x12345678);
 		ASSERT(dbus->load(0xc, MSIZE4) == 0x12345678);
@@ -293,21 +293,26 @@ constexpr size_t CMP_SCAN_SIZE = 32 * 1024;  // 32 KiB
 
 WITH CMP_TO(ref)
 {
+
 	for (size_t i = 0; i < CMP_SCAN_SIZE / 8; i++) {
 		dbus->stored(8 * i, randi<uint64_t>());
 		dbus->loadd(8 * i);
+// printf("dbus->loadh(8 * i) is %x\n", dbus->loadh(8 * i));
+
 	}
 } AS("cmp: word");
 
 WITH CMP_TO(ref)
 {
+
 	for (size_t i = 0; i < CMP_SCAN_SIZE / 2; i++) {
 		dbus->storeh(2 * i, randi<uint16_t>());
 		dbus->loadh(2 * i);
+
 	}
 } AS("cmp: halfword");
 
-WITH CMP_TO(ref)
+WITH CMP_TO(ref) 
 {
 	for (size_t i = 0; i < CMP_SCAN_SIZE; i++) {
 		dbus->storeb(i, randi<uint8_t>());
@@ -318,10 +323,18 @@ WITH CMP_TO(ref)
 WITH CMP_TO(ref)
 {
 	constexpr int T = 65536;
+	int save=0;
 	for (int i = 0; i < T; i++) {
 		addr_t addr = randi<addr_t>(0, MEMORY_SIZE / 8) * 4;  // random address within 512 KiB region
-		dbus->storew(addr, randi());
+		auto temp=randi();
+		dbus->storew(addr, temp);
+			if (addr>=0b100000101010000000&&addr<=0b100000101011110000)
+	{
+			save=i;
+
+	}
 		dbus->loadw(addr);
+		printf(" %d %d",i,save);
 	}
 } AS("cmp: random");
 
@@ -329,7 +342,7 @@ WITH CMP_TO(ref)
  * pressure tests and benchmarks
  */
 
-WITH{
+WITH {
 	auto p = DBusPipeline(top, dbus);
 
 	for (addr_t i = 0; i < MEMORY_SIZE / 8; i++) {

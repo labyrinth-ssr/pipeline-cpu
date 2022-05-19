@@ -43,15 +43,20 @@ auto CacheRefModel::load(addr_t addr, AXISize size) -> word_t
 	/**
 	 * TODO (Lab3) implement load operation for reference model :)
 	 */
+		addr_t start = addr / 128 * 128;
+	for (int i = 0; i < 16; i++) {
+		buffer[i] = mem.load(start + 8 * i);
+	}
 
-	return mem.load(0x0);
+	return buffer[addr % 128 / 8];
+	
 #endif
 }
 
 void CacheRefModel::store(addr_t addr, AXISize size, word_t strobe, word_t data)
 {
 
-	log_debug("ref: store(0x%lx, %d, %x, \"%016x\")\n", addr, 1 << size, strobe, data);
+	log_debug("ref: store(0x%lx, %d, %x, \"%016lx\")\n", addr, 1 << size, strobe, data);
 #ifdef REFERENCE_CACHE
 	addr_t start = addr / 128 * 128;
 	for (int i = 0; i < 16; i++) {
@@ -69,8 +74,21 @@ void CacheRefModel::store(addr_t addr, AXISize size, word_t strobe, word_t data)
 	/**
 	 * TODO (Lab3) implement store operation for reference model :)
 	 */
+	addr_t start = addr / 128 * 128;
+	for (int i = 0; i < 16; i++) {
+		buffer[i] = mem.load(start + 8 * i);
+	}
+	auto mask1 = STROBE_TO_MASK[strobe & 0xf];
+	auto mask2 = STROBE_TO_MASK[((strobe) >> 4) & 0xf];
+	auto mask = (mask2 << 32) | mask1;
+	auto &value = buffer[addr % 128 / 8];
+	value = (data & mask) | (value & ~mask);
 
-	mem.store(0x0, 0xdeadbeef, 0b1111);
+	
+
+	mem.store(addr, value, mask);
+
+	// mem.store(0x0, 0xdeadbeef, 0b1111);
 #endif
 }
 

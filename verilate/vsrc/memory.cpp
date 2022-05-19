@@ -125,7 +125,7 @@ auto BlockMemory::load(addr_t addr) -> word_t
 	size_t index = addr / 8;  // align to 4 bytes
 	word_t value = mem[index];
 
-	log_debug("%s[%016x] => %016x\n", name, caddr, value);
+	log_debug("%s[%016lx] => %016lx\n", name, caddr, value);
 
 	return value;
 }
@@ -140,5 +140,5 @@ void BlockMemory::store(addr_t addr, word_t data, word_t mask)
 	word_t &value = mem[index];
 	value = (value & ~mask) | (data & mask);
 
-	log_debug("%s[%016x] <- %016x\n", name, caddr, value);
+	log_debug("%s[%016lx] <- %016lx\n", name, caddr, value);
 }

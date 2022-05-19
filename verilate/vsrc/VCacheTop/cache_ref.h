@@ -26,7 +26,10 @@ private:
 	 * TODO (Lab3) declare reference model's memory and internal states :)
 	 *
 	 * NOTE: you can use BlockMemory, or replace it with anything you like.
+	 * 
 	 */
+	word_t buffer[16];
+
 #endif
 
 	 // int state;
