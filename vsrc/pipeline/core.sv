@@ -70,6 +70,19 @@ module core
 	execute_data_t dataE,dataE_nxt;
 	memory_data_t dataM,dataM_nxt;
 	writeback_data_t dataW;
+	u64 pc_save;
+	u32 raw_instr_save;
+	u1 fetched;
+
+	always_ff @(posedge clk ) begin
+		if (e_wait&&iresp.data_ok) begin
+			pc_save<=pc;
+			raw_instr_save<=raw_instr;
+			fetched<='1;
+		end else if (~e_wait) begin
+			{pc_save,raw_instr_save,fetched}<='0;
+		end
+	end
 
 	pcselect pcselect(
 		.pcplus4(pc+4),
@@ -77,11 +90,13 @@ module core
 		.pc_branch(dataD_nxt.target),
 		.branch_taken(dataD_nxt.pcSrc)
 	);
+
 	fetch fetch(
-		.raw_instr,
-		.pc(pc),
+		.raw_instr(fetched&&~e_wait?raw_instr_save:raw_instr),
+		.pc(fetched&&~e_wait?pc_save:pc),
 		.dataF(dataF_nxt)
 	);
+
 	pipereg #(.T(fetch_data_t)) dreg(
 		.clk,.reset,
 		.in(dataF_nxt),

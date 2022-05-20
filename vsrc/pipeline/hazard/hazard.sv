@@ -27,14 +27,14 @@ u1 branch_stall,lwstall;
         if (e_wait) begin
             stallE='1;flushM='1;stallF='1;flushD='1;
         end
-        if(d_wait) begin
+        else if(d_wait) begin
             stallM='1;flushW='1;stallF='1;flushD='1;
         end else if (i_wait) begin
             stallF='1;flushD='1;
             if (dbranch) begin
             stallF='0;flushD='1;
             end
-        end else 
+        end  
         else begin
             flushD=dbranch;
             branch_stall=dbranch && ((wrE&&(edst==ra1||edst==ra2))||(memwrM&& (mdst==ra1||mdst==ra2)) );
