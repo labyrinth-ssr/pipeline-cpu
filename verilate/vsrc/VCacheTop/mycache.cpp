@@ -17,7 +17,7 @@ void MyCache::reset()
 	memset(dreq, 0, sizeof(dreq));
 
 	for (int i = 0; i < 100000; i++) {
-		_tick<false,false, false>();
+		_tick<false,true, false>();
 	}
 
 	dev->reset();

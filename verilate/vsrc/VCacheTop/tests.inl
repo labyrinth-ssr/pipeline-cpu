@@ -22,7 +22,7 @@ extern CacheRefModel *ref;
   * basic tests
   */
 
-WITH SKIP{
+WITH{
 	dbus->async_load(0xc, MSIZE4);
 	top->tick();
 	// ASSERT(top->dresp == 0);
@@ -37,7 +37,7 @@ WITH SKIP{
 	ASSERT(dbus->rdata() == 0);
 } AS("reset");
 
-WITH SKIP{
+WITH{
 	for (int i = 0; i < 4096; i++) {
 		dbus->async_loadw(4 * i);
 		dbus->clear();
@@ -50,7 +50,7 @@ WITH SKIP{
 	}
 } AS("fake load");
 
-WITH SKIP{
+WITH{
 	for (int i = 0; i < 4096; i++) {
 		dbus->async_storew(4 * i, 0xdeadbeef);
 		dbus->clear();
@@ -64,7 +64,7 @@ WITH SKIP{
 } AS("fake store");
 
 // both dbus->store and dbus->load wait for your model to complete
-WITH SKIP{
+WITH{
 	dbus->store(0, MSIZE4, 0b1111, 0x2048ffff);
 // printf("dbus->load(0, MSIZE4) is %x\n", dbus->load(0, MSIZE4));
 ASSERT(dbus->load(0, MSIZE4) == 0x2048ffff);
@@ -79,7 +79,7 @@ WITH SKIP{
 
 // if your cache does not support partial writes, you can simply skip
 // this test by marking it with SKIP.
-WITH SKIP{
+WITH {
 	// S iterates over 0b0000 to 0b1111.
 	std::vector<word_t> a;  // to store the correct value
 	a.resize(16);
@@ -101,7 +101,7 @@ WITH SKIP{
 
 // this is a more detailed example of DBus.
 // add DEBUG to see all memory operations.
-WITH /* TRACE DEBUG */SKIP{
+WITH /* TRACE DEBUG */{
 	{
 		dbus->store(0xc, MSIZE4, 0b1111, 0x12345678);
 		ASSERT(dbus->load(0xc, MSIZE4) == 0x12345678);
@@ -172,7 +172,7 @@ WITH /* TRACE DEBUG */SKIP{
 // all operations performed by pipeline are asynchronous, unless
 // p.fence() is called.
 // add DEBUG to see all memory & pipeline operations.
-WITH /*TRACE*/ /*DEBUG*/SKIP{
+WITH /*TRACE*/ /*DEBUG*/{
 	auto p = DBusPipeline(top, dbus);
 
 	{
@@ -238,7 +238,7 @@ WITH /*TRACE*/ /*DEBUG*/SKIP{
 	//       destructed here.
 } AS("pipelined");
 
-WITH SKIP{
+WITH{
 	auto p = DBusPipeline(top, dbus);
 	auto factory = MemoryCellFactory(&p);
 
@@ -264,7 +264,7 @@ WITH SKIP{
 	ASSERT(b.get() == 0x0000dead);
 } AS("memory cell");
 
-WITH SKIP{
+WITH{
 	constexpr int n = 64;
 
 	auto p = DBusPipeline(top, dbus);
@@ -291,7 +291,7 @@ WITH SKIP{
 
 constexpr size_t CMP_SCAN_SIZE = 32 * 1024;  // 32 KiB
 
-WITH CMP_TO(ref) SKIP
+WITH CMP_TO(ref) TRACE
 {
 
 	for (size_t i = 0; i < CMP_SCAN_SIZE / 8; i++) {
@@ -302,7 +302,7 @@ WITH CMP_TO(ref) SKIP
 	}
 } AS("cmp: word");
 
-WITH CMP_TO(ref) SKIP
+WITH CMP_TO(ref) TRACE
 {
 
 	for (size_t i = 0; i < CMP_SCAN_SIZE / 2; i++) {
@@ -312,7 +312,7 @@ WITH CMP_TO(ref) SKIP
 	}
 } AS("cmp: halfword");
 
-WITH CMP_TO(ref) SKIP
+WITH CMP_TO(ref) 
 {
 	for (size_t i = 0; i < CMP_SCAN_SIZE; i++) {
 		dbus->storeb(i, randi<uint8_t>());
@@ -320,7 +320,7 @@ WITH CMP_TO(ref) SKIP
 	}
 } AS("cmp: byte");
 
-WITH CMP_TO(ref) SKIP
+WITH CMP_TO(ref)
 {
 	constexpr int T = 65536;
 	int save=0;
@@ -328,11 +328,6 @@ WITH CMP_TO(ref) SKIP
 		addr_t addr = randi<addr_t>(0, MEMORY_SIZE / 8) * 4;  // random address within 512 KiB region
 		auto temp=randi();
 		dbus->storew(addr, temp);
-			if (addr>=0b100000101010000000&&addr<=0b100000101011110000)
-	{
-			save=i;
-
-	}
 		dbus->loadw(addr);
 	}
 } AS("cmp: random");
@@ -341,7 +336,7 @@ WITH CMP_TO(ref) SKIP
  * pressure tests and benchmarks
  */
 
-WITH SKIP{
+WITH {
 	auto p = DBusPipeline(top, dbus);
 
 	for (addr_t i = 0; i < MEMORY_SIZE / 8; i++) {
@@ -352,7 +347,7 @@ WITH SKIP{
 	}
 } AS("memset");
 
-WITH SKIP{
+WITH{
 	auto p = DBusPipeline(top, dbus);
 
 	addr_t MID = MEMORY_SIZE / 2;
@@ -381,7 +376,7 @@ WITH SKIP{
 	}
 } AS("memcpy");
 
-WITH SKIP{
+WITH{
 	auto p = DBusPipeline(top, dbus);
 	for (addr_t i = 0; i < MEMORY_SIZE; i += 8) {
 		auto value = randi();
@@ -390,7 +385,7 @@ WITH SKIP{
 	}
 } AS("load/store repeat");
 
-WITH SKIP{
+WITH{
 	auto p = DBusPipeline(top, dbus);
 
 	for (int i = MEMORY_SIZE - 1; i >= 0; i--) {
@@ -401,7 +396,7 @@ WITH SKIP{
 	}
 } AS("backward memset");
 
-WITH SKIP{
+WITH{
 	auto p = DBusPipeline(top, dbus);
 
 	for (int i = MEMORY_SIZE - 2; i >= 0; i -= 2) {
@@ -414,7 +409,7 @@ WITH SKIP{
 	}
 } AS("backward load/store");
 
-WITH SKIP{
+WITH{
 	constexpr int T = 1000000;
 	constexpr int SIZE = 1024;
 
@@ -439,7 +434,7 @@ WITH SKIP{
 	}
 } AS("random step");
 
-WITH DEBUG{
+WITH{
 	std::vector<uint8_t> ref;
 	ref.resize(MEMORY_SIZE);
 

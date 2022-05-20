@@ -30,7 +30,7 @@ module DCache
     localparam ASOC_BITS = $clog2(ASSOCIATIVITY);
     localparam DATA_INDEX_BITS = $clog2(SET_NUM*WORDS_PER_LINE*ASSOCIATIVITY);
     localparam type state_t = enum logic[2:0] {
-        INIT,FETCH,FLUSH,UNCACHE,RESET
+        INIT,FETCH,FLUSH,UNCACHE
     };
     localparam type offset_t = logic [OFFSET_BITS-1:0];
     localparam type index_t = logic [INDEX_BITS-1:0];
@@ -57,8 +57,6 @@ module DCache
     return addr[3+INDEX_BITS+OFFSET_BITS+TAG_BITS-
     1:3+INDEX_BITS+OFFSET_BITS];
     endfunction
-
-
     struct packed {
         logic en;
         strobe_t strobe;
