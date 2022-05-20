@@ -3,6 +3,8 @@
 
 `ifdef VERILATOR
 `include "include/common.sv"
+`include "ram/RAM_SinglePort.sv"
+
 /* You should not add any additional includes in this file */
 `endif
 
@@ -23,14 +25,14 @@ module DCache
 
 `ifndef REFERENCE_CACHE
 	/* TODO: Lab3 Cache */
-    dbus_req_t req;
+    // dbus_req_t req;
     localparam DATA_BITS = $bits(word_t)*WORDS_PER_LINE;
     localparam ASOC_BITS = $clog2(ASSOCIATIVITY);
     localparam DATA_INDEX_BITS = $clog2(SET_NUM*WORDS_PER_LINE*ASSOCIATIVITY);
     localparam type state_t = enum logic[2:0] {
-        IDLE,INIT,FETCH,READY,FLUSH,UNCACHE,RESET
+        INIT,FETCH,FLUSH,UNCACHE,RESET
     };
-        localparam type offset_t = logic [OFFSET_BITS-1:0];
+    localparam type offset_t = logic [OFFSET_BITS-1:0];
     localparam type index_t = logic [INDEX_BITS-1:0];
     localparam type tag_t = logic [TAG_BITS-1:0];
     localparam type asoc_index_t = logic [ASOC_BITS-1:0];
@@ -85,15 +87,15 @@ module DCache
     data_index_t data_index;
 
 
-    assign set_index=ram_reset?counter: get_index(req.addr);
+    assign set_index=ram_reset?counter: get_index(dreq.addr);
     assign meta_rdata_arr[1]=meta_rdata[META_BITS*2-1:META_BITS];
     assign meta_rdata_arr[0]=meta_rdata[META_BITS-1:0];
     assign creq.valid    = state == FETCH || state == FLUSH ||state == UNCACHE ;
-    assign creq.is_write = state == FLUSH ||(state == UNCACHE&&(|req.strobe));
-    assign creq.size     = state == UNCACHE? req.size:MSIZE8;
-    assign creq.addr     = state == FLUSH? {meta_rdata_arr[1].tag,set_index,7'b0} : {req.addr[63:7],7'b0};
-    assign creq.strobe   = state == UNCACHE? req.strobe: 8'b11111111; 
-    assign creq.data     = state == UNCACHE?req.data: data_rdata;
+    assign creq.is_write = state == FLUSH ||(state == UNCACHE&&(|dreq.strobe));
+    assign creq.size     = state == UNCACHE? dreq.size:MSIZE8;
+    assign creq.addr     = state == FLUSH? {meta_rdata_arr[1].tag,set_index,7'b0} : {dreq.addr[63:7],7'b0};
+    assign creq.strobe   = state == UNCACHE? dreq.strobe: 8'b11111111; 
+    assign creq.data     = state == UNCACHE?dreq.data: data_rdata;
     assign creq.len      = state ==UNCACHE?MLEN1:MLEN16;//word_per_line
 	assign creq.burst	 = state ==UNCACHE?AXI_BURST_FIXED:AXI_BURST_INCR;
     assign cache_rdata=data_rdata;
@@ -105,24 +107,30 @@ module DCache
     always_ff @(posedge clk) begin
     if (~reset) begin
         unique case (state)
-        IDLE: if (dreq.valid) begin
-            ram_reset<='0;
-            state  <= dreq.addr[31] == 0?UNCACHE:INIT;
-            req    <= dreq;
-            fetched<='0;
-            offset<='0;
-            flushed<='0;
-        end
+        // IDLE: if (dreq.valid) begin
+        //     ram_reset<='0;
+        //     state  <= dreq.addr[31] == 0?UNCACHE:INIT;
+        //     // req    <= dreq;
+        //     fetched<='0;
+        //     offset<='0;
+        //     flushed<='0;
+        // end
         UNCACHE: if (cresp.ready) begin
             if (cresp.last) begin
-                state<=IDLE;
+                state<=INIT;
             end else begin
                 state<=UNCACHE;
             end
         end
-        INIT:begin
+        INIT:begin if (dreq.valid) begin
+            ram_reset<='0;
+            state  <= dreq.addr[31] == 0?UNCACHE:INIT;
+            // req    <= dreq;
+            fetched<='0;
+            offset<='0;
+            flushed<='0;
             if (hit) begin
-                state<=IDLE;
+                state<=INIT;
             end else if (is_full&& meta_rdata_arr[1].dirty) begin
                 state<=FLUSH;
             end else begin
@@ -130,9 +138,9 @@ module DCache
             end
             replace_index<=empty_index;
         end
+        end
         FETCH: begin
             // replace_index<=flushed?1:empty_index;
-
             offset<='0;
         if (cresp.ready) begin
             offset <= offset + 1;
@@ -143,9 +151,6 @@ module DCache
                 state<=FETCH;
             end
         end
-        end
-        READY: begin
-            state  <= IDLE;
         end
         FLUSH: begin
             replace_index<=1;
@@ -159,11 +164,12 @@ module DCache
         default:;
         endcase
     end else begin
-        {req, offset} <= '0;
+        // {req, offset} <= '0;
+        // offset<='0;
         counter<= counter==7?0:(counter+1);
         ram_reset<=reset;
-        fetched<='0;
-            flushed<='0;
+        // fetched<='0;
+        // flushed<='0;
     end
     end
 
@@ -171,40 +177,46 @@ module DCache
         meta_ram = '0;data_ram='0; hit='0;meta_signal='0;data_index='0;empty_index='0;valid_signal='0;is_full='0;meta_wdata_arr[1]=meta_rdata[META_BITS*2-1:META_BITS];
         meta_wdata_arr[0]=meta_rdata[META_BITS-1:0];
     unique case (state)
-    IDLE:begin
+    // IDLE:begin
+    //     if (ram_reset) begin
+    //         meta_ram.en='1;
+    //         meta_wdata_arr[0].valid='0;
+    //         meta_wdata_arr[1].valid='0;
+    //         meta_ram.strobe='1;
+    //     end
+    // end
+    INIT: begin
         if (ram_reset) begin
             meta_ram.en='1;
             meta_wdata_arr[0].valid='0;
             meta_wdata_arr[1].valid='0;
             meta_ram.strobe='1;
-        end
-    end
-    INIT: begin
+        end else begin
         if (fetched) begin
 
             meta_wdata_arr[replace_index].valid='1;
-            meta_wdata_arr[replace_index].tag=get_tag(req.addr);
+            meta_wdata_arr[replace_index].tag=get_tag(dreq.addr);
             meta_ram.strobe[replace_index]=1'b1;
             meta_ram.en='1;
             data_ram.en='1;
-            data_ram.strobe=req.strobe;
-            data_index= set_index*(ASSOCIATIVITY*WORDS_PER_LINE)+replace_index*WORDS_PER_LINE+{4'b0,get_offset(req.addr)};
-            data_ram.wdata=req.data;
+            data_ram.strobe=dreq.strobe;
+            data_index= set_index*(ASSOCIATIVITY*WORDS_PER_LINE)+replace_index*WORDS_PER_LINE+{4'b0,get_offset(dreq.addr)};
+            data_ram.wdata=dreq.data;
             hit='1;
-            if (|req.strobe) begin
+            if (|dreq.strobe) begin
                 meta_wdata_arr[replace_index].dirty='1;
             end
         end else begin
             for (int  i=0; i<ASSOCIATIVITY; i++) begin
-            meta_signal[i]=meta_rdata_arr[i].valid&(meta_rdata_arr[i].tag==get_tag(req.addr));
+            meta_signal[i]=meta_rdata_arr[i].valid&(meta_rdata_arr[i].tag==get_tag(dreq.addr));
             valid_signal[i]=meta_rdata_arr[i].valid;
             if (meta_signal[i]) begin      
                 meta_ram.en='1;
                 data_ram.en='1;
-                data_ram.strobe=req.strobe;
-                data_index=set_index*(ASSOCIATIVITY*WORDS_PER_LINE)+i[0]*WORDS_PER_LINE+{4'b0,get_offset(req.addr)};
-                data_ram.wdata=req.data;
-                if (~(|req.strobe)) begin
+                data_ram.strobe=dreq.strobe;
+                data_index=set_index*(ASSOCIATIVITY*WORDS_PER_LINE)+i[0]*WORDS_PER_LINE+{4'b0,get_offset(dreq.addr)};
+                data_ram.wdata=dreq.data;
+                if (~(|dreq.strobe)) begin
                     meta_ram.strobe[i]=1'b1;
                 end
                 meta_wdata_arr[i].dirty='1;
@@ -215,8 +227,9 @@ module DCache
         hit=|meta_signal;
         is_full=|valid_signal;
         if ((~hit)) begin
-            data_index=set_index*(ASSOCIATIVITY*WORDS_PER_LINE)+empty_index*WORDS_PER_LINE+{4'b0,get_offset(req.addr)};
+            data_index=set_index*(ASSOCIATIVITY*WORDS_PER_LINE)+empty_index*WORDS_PER_LINE+{4'b0,get_offset(dreq.addr)};
         end 
+        end
         end
     end
     FETCH: begin

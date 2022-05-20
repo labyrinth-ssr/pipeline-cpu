@@ -16,7 +16,6 @@
 `include "pipeline/regfile/pcreg.sv"
 `include "pipeline/hazard/hazard.sv"
 `include "pipeline/mux/mux2.sv"
-`include "cache/ICache.sv"
 
 `else
 //`include "include/interface.svh"

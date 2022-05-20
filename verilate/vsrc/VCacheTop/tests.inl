@@ -22,7 +22,7 @@ extern CacheRefModel *ref;
   * basic tests
   */
 
-WITH{
+WITH SKIP{
 	dbus->async_load(0xc, MSIZE4);
 	top->tick();
 	// ASSERT(top->dresp == 0);
@@ -37,7 +37,7 @@ WITH SKIP{
 	ASSERT(dbus->rdata() == 0);
 } AS("reset");
 
-WITH{
+WITH SKIP{
 	for (int i = 0; i < 4096; i++) {
 		dbus->async_loadw(4 * i);
 		dbus->clear();
@@ -50,7 +50,7 @@ WITH{
 	}
 } AS("fake load");
 
-WITH{
+WITH SKIP{
 	for (int i = 0; i < 4096; i++) {
 		dbus->async_storew(4 * i, 0xdeadbeef);
 		dbus->clear();
@@ -64,7 +64,7 @@ WITH{
 } AS("fake store");
 
 // both dbus->store and dbus->load wait for your model to complete
-WITH{
+WITH SKIP{
 	dbus->store(0, MSIZE4, 0b1111, 0x2048ffff);
 // printf("dbus->load(0, MSIZE4) is %x\n", dbus->load(0, MSIZE4));
 ASSERT(dbus->load(0, MSIZE4) == 0x2048ffff);
@@ -79,7 +79,7 @@ WITH SKIP{
 
 // if your cache does not support partial writes, you can simply skip
 // this test by marking it with SKIP.
-WITH {
+WITH SKIP{
 	// S iterates over 0b0000 to 0b1111.
 	std::vector<word_t> a;  // to store the correct value
 	a.resize(16);
@@ -101,7 +101,7 @@ WITH {
 
 // this is a more detailed example of DBus.
 // add DEBUG to see all memory operations.
-WITH /* TRACE DEBUG */{
+WITH /* TRACE DEBUG */SKIP{
 	{
 		dbus->store(0xc, MSIZE4, 0b1111, 0x12345678);
 		ASSERT(dbus->load(0xc, MSIZE4) == 0x12345678);
@@ -172,7 +172,7 @@ WITH /* TRACE DEBUG */{
 // all operations performed by pipeline are asynchronous, unless
 // p.fence() is called.
 // add DEBUG to see all memory & pipeline operations.
-WITH /*TRACE*/ /*DEBUG*/{
+WITH /*TRACE*/ /*DEBUG*/SKIP{
 	auto p = DBusPipeline(top, dbus);
 
 	{
@@ -238,7 +238,7 @@ WITH /*TRACE*/ /*DEBUG*/{
 	//       destructed here.
 } AS("pipelined");
 
-WITH{
+WITH SKIP{
 	auto p = DBusPipeline(top, dbus);
 	auto factory = MemoryCellFactory(&p);
 
@@ -264,7 +264,7 @@ WITH{
 	ASSERT(b.get() == 0x0000dead);
 } AS("memory cell");
 
-WITH{
+WITH SKIP{
 	constexpr int n = 64;
 
 	auto p = DBusPipeline(top, dbus);
@@ -291,7 +291,7 @@ WITH{
 
 constexpr size_t CMP_SCAN_SIZE = 32 * 1024;  // 32 KiB
 
-WITH CMP_TO(ref)
+WITH CMP_TO(ref) SKIP
 {
 
 	for (size_t i = 0; i < CMP_SCAN_SIZE / 8; i++) {
@@ -302,7 +302,7 @@ WITH CMP_TO(ref)
 	}
 } AS("cmp: word");
 
-WITH CMP_TO(ref)
+WITH CMP_TO(ref) SKIP
 {
 
 	for (size_t i = 0; i < CMP_SCAN_SIZE / 2; i++) {
@@ -312,7 +312,7 @@ WITH CMP_TO(ref)
 	}
 } AS("cmp: halfword");
 
-WITH CMP_TO(ref) 
+WITH CMP_TO(ref) SKIP
 {
 	for (size_t i = 0; i < CMP_SCAN_SIZE; i++) {
 		dbus->storeb(i, randi<uint8_t>());
@@ -320,7 +320,7 @@ WITH CMP_TO(ref)
 	}
 } AS("cmp: byte");
 
-WITH CMP_TO(ref)
+WITH CMP_TO(ref) SKIP
 {
 	constexpr int T = 65536;
 	int save=0;
@@ -334,7 +334,6 @@ WITH CMP_TO(ref)
 
 	}
 		dbus->loadw(addr);
-		printf(" %d %d",i,save);
 	}
 } AS("cmp: random");
 
@@ -342,7 +341,7 @@ WITH CMP_TO(ref)
  * pressure tests and benchmarks
  */
 
-WITH {
+WITH SKIP{
 	auto p = DBusPipeline(top, dbus);
 
 	for (addr_t i = 0; i < MEMORY_SIZE / 8; i++) {
@@ -353,7 +352,7 @@ WITH {
 	}
 } AS("memset");
 
-WITH{
+WITH SKIP{
 	auto p = DBusPipeline(top, dbus);
 
 	addr_t MID = MEMORY_SIZE / 2;
@@ -382,7 +381,7 @@ WITH{
 	}
 } AS("memcpy");
 
-WITH{
+WITH SKIP{
 	auto p = DBusPipeline(top, dbus);
 	for (addr_t i = 0; i < MEMORY_SIZE; i += 8) {
 		auto value = randi();
@@ -391,7 +390,7 @@ WITH{
 	}
 } AS("load/store repeat");
 
-WITH{
+WITH SKIP{
 	auto p = DBusPipeline(top, dbus);
 
 	for (int i = MEMORY_SIZE - 1; i >= 0; i--) {
@@ -402,7 +401,7 @@ WITH{
 	}
 } AS("backward memset");
 
-WITH{
+WITH SKIP{
 	auto p = DBusPipeline(top, dbus);
 
 	for (int i = MEMORY_SIZE - 2; i >= 0; i -= 2) {
@@ -415,7 +414,7 @@ WITH{
 	}
 } AS("backward load/store");
 
-WITH{
+WITH SKIP{
 	constexpr int T = 1000000;
 	constexpr int SIZE = 1024;
 
@@ -440,7 +439,7 @@ WITH{
 	}
 } AS("random step");
 
-WITH{
+WITH DEBUG{
 	std::vector<uint8_t> ref;
 	ref.resize(MEMORY_SIZE);
 
