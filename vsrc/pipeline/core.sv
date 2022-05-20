@@ -37,7 +37,7 @@ module core
 	u1 stallF,stallD,flushD,flushE,flushM,flushW,stallM,stallE;
 	u1 forwardaD,forwardbD;
 	u2 forwardaE,forwardbE;
-	u1 i_wait,d_wait;
+	u1 i_wait,d_wait,e_wait;
     creg_addr_t edst,mdst,wdst;
 	assign edst=dataE_nxt.dst;
 	assign mdst=dataM_nxt.dst;
@@ -52,7 +52,7 @@ module core
 	assign i_wait=ireq.valid && ~iresp.data_ok;
 	assign d_wait=dreq.valid && ~dresp.data_ok;
 	hazard hazard(
-		.stallF,.stallD,.flushD,.flushE,.flushM,.edst,.mdst,.wdst,.ra1,.ra2,.wrE,.wrM,.wrW,.i_wait,.d_wait,.stallM,.stallE,.flushW,.memwrE(dataD.ctl.wbSelect==2'b1),.memwrM(dataE.ctl.wbSelect==2'b1),.forwardaE,.forwardbE,.forwardaD,.forwardbD,.dbranch(dataD_nxt.pcSrc),.ra1E(dataD.ra1),.ra2E(dataD.ra2)
+		.stallF,.stallD,.flushD,.flushE,.flushM,.edst,.mdst,.wdst,.ra1,.ra2,.wrE,.wrM,.wrW,.i_wait,.d_wait,.stallM,.stallE,.flushW,.memwrE(dataD.ctl.wbSelect==2'b1),.memwrM(dataE.ctl.wbSelect==2'b1),.forwardaE,.forwardbE,.forwardaD,.forwardbD,.dbranch(dataD_nxt.pcSrc),.ra1E(dataD.ra1),.ra2E(dataD.ra2),.e_wait
 	);
 	pcreg pcreg(
 		.clk,.reset,
@@ -64,7 +64,6 @@ module core
 	assign ireq.addr=pc;
 	assign ireq.valid=1'b1;
 
-	ICache icache(,.clk,.reset,.ireq,.iresp,.)
 	assign raw_instr=iresp.data;
 	fetch_data_t dataF,dataF_nxt;
 	decode_data_t dataD,dataD_nxt;
@@ -115,10 +114,11 @@ module core
 		.flush(flushE)
 	);
 	execute execute(
+		.clk,.reset,
 		.dataD(dataD),
 		.dataE(dataE_nxt),
 		.forwardaE,.forwardbE,
-		.aluoutM(dataE.alu_out),.resultW(dataW.wd)
+		.aluoutM(dataE.alu_out),.resultW(dataW.wd),.e_wait
 	);
 	assign stallM = dreq.valid && ~dresp.data_ok;
 	assign flushW = dreq.valid && ~dresp.data_ok;

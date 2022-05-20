@@ -14,10 +14,12 @@
 module execute
 import common::*;
 	import pipes::*;(
+    input clk,reset,
     input decode_data_t dataD,
     output execute_data_t dataE,
     input u2 forwardaE,forwardbE,
-    input u64 aluoutM,resultW
+    input u64 aluoutM,resultW,
+    output u1 e_wait
 );
 u64 alu_result;
 word_t alu_a,alu_b;
@@ -34,9 +36,10 @@ u64 pcAdded;
     );
 
     alu alu (
+        .clk,.reset,
         .a(alu_a),.b(alu_b),
         .alufunc(dataD.ctl.alufunc),
-        .c(alu_result)
+        .c(alu_result),.sign(dataD.ctl.alu_sign),.e_wait,.cut(dataD.ctl.alu_cut)
     );
 
     assign dataE.pc=dataD.pc;

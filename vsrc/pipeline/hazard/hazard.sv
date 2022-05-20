@@ -11,7 +11,7 @@ import common::*;
 import pipes::*;(
     output u1 stallF,stallD,flushD,flushE,flushM,stallM,flushW,stallE,
     input creg_addr_t edst,mdst,wdst,
-    input dbranch,i_wait,d_wait,
+    input dbranch,i_wait,d_wait,e_wait,
     input creg_addr_t ra1,ra2,ra1E,ra2E,
     input wrE,wrM,wrW,
     input memwrE,memwrM,
@@ -24,17 +24,17 @@ u1 branch_stall,lwstall;
         stallF='0;stallD='0;flushD='0;flushE='0;flushM='0;
         stallM='0;flushW='0;stallE='0;branch_stall='0;lwstall='0;
         forwardaE='0;forwardbE='0;forwardaD='0;forwardbD='0;
+        if (e_wait) begin
+            stallE='1;flushM='1;stallF='1;flushD='1;
+        end
         if(d_wait) begin
             stallM='1;flushW='1;stallF='1;flushD='1;
         end else if (i_wait) begin
             stallF='1;flushD='1;
             if (dbranch) begin
             stallF='0;flushD='1;
-                // stallD='1;
-                // flushD='0;
-                // flushE='1;
             end
-        end
+        end else 
         else begin
             flushD=dbranch;
             branch_stall=dbranch && ((wrE&&(edst==ra1||edst==ra2))||(memwrM&& (mdst==ra1||mdst==ra2)) );
@@ -54,17 +54,6 @@ u1 branch_stall,lwstall;
             forwardbD=(ra2!=0&&ra2==mdst && wrM);
 
         end
-        // if (ebranch) begin
-        //     flushE='1;flushD='1;
-        // end else if (wrE&&(edst==ra1||edst==ra2)) begin
-        //     stallD='1;stallF='1;flushE='1;
-        // end else if (wrM&&(mdst==ra1||mdst==ra2)) begin
-        //     stallD='1;stallF='1;flushE='1;
-        // end else if (wrW&&(wdst==ra1||wdst==ra2)) begin
-        //     stallD='1;stallF='1;flushE='1;
-        // end else begin
-        //     stallF='0;stallD='0;flushD='0;flushE='0;flushM='0;
-        // end
     end
 endmodule
 

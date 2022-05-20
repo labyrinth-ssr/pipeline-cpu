@@ -83,9 +83,6 @@ void CacheRefModel::store(addr_t addr, AXISize size, word_t strobe, word_t data)
 	auto mask = (mask2 << 32) | mask1;
 	auto &value = buffer[addr % 128 / 8];
 	value = (data & mask) | (value & ~mask);
-
-	
-
 	mem.store(addr, value, mask);
 
 	// mem.store(0x0, 0xdeadbeef, 0b1111);

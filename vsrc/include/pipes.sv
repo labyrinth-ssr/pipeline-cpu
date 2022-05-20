@@ -59,10 +59,16 @@ parameter F3_LW=3'b010;
 parameter F3_LWU=3'b110;
 parameter F3_LD=3'b011;
 
-
+parameter F3_MUL=3'b000;
+parameter F3_DIV=3'b100;
+parameter F3_DIVU=3'b101;
+parameter F3_REM=3'b110;
+parameter F3_REMU=3'b111;
 
 parameter F7_R_ADD=7'b0000000;
 parameter F7_R_SUB=7'b0100000;
+parameter F7_R_MUL_DIV=7'b0000001;
+
 
 typedef enum u3{
 	NO_BRANCH,BRANCH_BEQ,BRANCH_BNE,BRANCH_BLT,BRANCH_BGE,BRANCH_BLTU,BRANCH_BGEU,J
@@ -79,7 +85,7 @@ typedef enum logic[5:0] {
 	// ,LUI,LD,SD,BEQ,AUIPC,JAL,JALR
  } decoded_op_t;
 typedef enum logic [4:0] {
-	ADD,SUB,OR,XOR,AND,LS,RS,SLS,SRS,CMP,SCMP,RSW,SRSW,SLLW,SRLW,SRAW
+	ADD,SUB,OR,XOR,AND,LS,RS,SLS,SRS,CMP,SCMP,RSW,SRSW,SLLW,SRLW,SRAW,MUL,REM,DIV
 } alufunc_t;
 
 typedef struct packed {
@@ -87,7 +93,7 @@ typedef struct packed {
 	alufunc_t alufunc;
 	branch_t branch;
 	u2 memRw;
-	u1 regWrite,selectA,selectB,pcTarget,extAluOut,mem_unsigned;
+	u1 regWrite,selectA,selectB,pcTarget,extAluOut,mem_unsigned,alu_sign,alu_cut;
 	u2 wbSelect;//left:1,right:2
 	msize_t msize;
 

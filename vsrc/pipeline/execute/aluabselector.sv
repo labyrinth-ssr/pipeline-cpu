@@ -15,10 +15,10 @@ module aluabselector
     input u64 sextimm,pc,srca,srcb,
     output u64 alu_a,alu_b
 );
-always_comb begin
-    alu_a=selectA?pc:srca;
-    alu_b=selectB?sextimm:srcb;
-end
+// always_comb begin
+    assign alu_a=selectA?pc:srca;
+    assign alu_b=selectB?sextimm:srcb;
+// end
 endmodule
 
 `endif

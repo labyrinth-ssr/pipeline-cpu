@@ -87,9 +87,31 @@ always_comb begin
         F7_RTYPE:begin
             ctl.op=RTYPE;
             ctl.regWrite=1'b1;
-                    ctl.selectB=1'b0;
-
-            unique case (f3)
+            ctl.selectB=1'b0;
+            if (rf7==7'b0000001) begin
+                unique case (f3)
+                    F3_MUL:begin
+                        ctl.alufunc=MUL;
+                    end
+                    F3_DIV:begin
+                        ctl.alufunc=DIV;
+                        ctl.alu_sign='1;
+                    end
+                    F3_DIVU:begin
+                        ctl.alufunc=DIV;
+                    end
+                    F3_REM:begin
+                        ctl.alufunc=REM;
+                        ctl.alu_sign='1;
+                    end
+                    F3_REMU:begin
+                        ctl.alufunc=REM;
+                    end
+                    default: ;
+                endcase
+            end
+            else begin
+                unique case (f3)
                 F3_ADD_SUB:begin
                     unique case (rf7)
                     F7_R_ADD:ctl.alufunc=ADD;
@@ -130,6 +152,7 @@ always_comb begin
                     
                 end 
             endcase
+            end
         end 
         default:begin
         end
@@ -137,6 +160,30 @@ always_comb begin
             ctl.op=RTYPE;
             ctl.regWrite=1'b1;
             ctl.selectB='0;
+            if (rf7==7'b0000001) begin
+                ctl.alu_cut='1;
+                unique case (f3)
+                    F3_MUL:begin
+                        ctl.alufunc=MUL;
+                    end
+                    F3_DIV:begin
+                        ctl.alufunc=DIV;
+                        ctl.alu_sign='1;
+                    end
+                    F3_DIVU:begin
+                        ctl.alufunc=DIV;
+                    end
+                    F3_REM:begin
+                        ctl.alufunc=REM;
+                        ctl.alu_sign='1;
+                    end
+                    F3_REMU:begin
+                        ctl.alufunc=REM;
+                    end
+                    default: ;
+                endcase
+            end
+            else begin
             unique case (f3)
                 F3_ADD_SUBW:begin
                     ctl.extAluOut='1;
@@ -154,7 +201,6 @@ always_comb begin
                      default:begin
                     end
                 endcase
-
                 end
                 F3_SLLW:begin
                     ctl.alufunc=SLLW;
@@ -163,6 +209,7 @@ always_comb begin
                  default:begin
                     end
             endcase
+            end
         end
         F7_JAL:begin
             ctl.op=JTYPE;

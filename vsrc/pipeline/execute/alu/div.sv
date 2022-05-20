@@ -11,20 +11,22 @@ import common::*;
 import pipes::*;
 
 module divider_multicycle_from_single (
-    input u1 sign,
-    input logic clk, resetn, valid,
-    input i32 a, b,
+    input logic clk, reset, valid,
+    input i64 a, b,
     output logic done,
-    output i64 c // c = {a % b, a / b}
+    output u128 c
 );
     enum i1 { INIT, DOING } state, state_nxt;
-    i35 count, count_nxt;
-    localparam i35 DIV_DELAY = {'0, 1'b1, 32'b0};
+    i66 count, count_nxt;
+    u1 zero;
+    localparam i66 DIV_DELAY = {1'b0, 1'b1, 64'b0};
     always_ff @(posedge clk) begin
-        if (~resetn) begin
+        if (reset) begin
             {state, count} <= '0;
+            zero<='0;
         end else begin
             {state, count} <= {state_nxt, count_nxt};
+            zero<=~(|b);
         end
     end
     assign done = (state_nxt == INIT);
@@ -38,39 +40,31 @@ module divider_multicycle_from_single (
                 end
             end
             DOING: begin
-                count_nxt = {1'b0, count_nxt[34:1]};
-                if (count_nxt == '0) begin
+                count_nxt = {1'b0, count_nxt[65:1]};
+                if (count_nxt == '0||zero) begin
                     state_nxt = INIT;
                 end
             end
         endcase
     end
-    i64 p, p_nxt;
+    u128 p, p_nxt;
     always_comb begin
         p_nxt = p;
         unique case(state)
             INIT: begin
-                p_nxt = {'0, a};
+                p_nxt = {64'b0, a};
             end
             DOING: begin
-                p_nxt = {p_nxt[62:0], 1'b0};
-                if (sign) begin
-                    if ($signed(p_nxt[63:32]) >= $signed(b)) begin
-                    $signed(p_nxt[63:32]) -= $signed(b);
+                p_nxt = {p_nxt[126:0], 1'b0};
+                    if (p_nxt[127:64] >= b) begin
+                    p_nxt[127:64] -= b;
                     p_nxt[0] = 1'b1;
-                end
-                end
-                else begin
-                    if (p_nxt[63:32] >= b) begin
-                    p_nxt[63:32] -= b;
-                    p_nxt[0] = 1'b1;
-                end
                 end
             end
         endcase
     end
     always_ff @(posedge clk) begin
-        if (~resetn) begin
+        if (reset) begin
             p <= '0;
         end else begin
             p <= p_nxt;
