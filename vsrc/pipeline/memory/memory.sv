@@ -27,12 +27,15 @@ u8 strobe;
                 dreq.valid = '1;
                 dreq.strobe = '0;
                 dreq.addr = dataE.alu_out;
+                dreq.size=dataE.ctl.msize;
+
             end
             2'b10: begin//write
                 dreq.valid = '1;
                 dreq.addr = dataE.alu_out;
                 dreq.data=wd;
                 dreq.strobe=strobe;
+                dreq.size=dataE.ctl.msize;
             end
             default: begin
             end

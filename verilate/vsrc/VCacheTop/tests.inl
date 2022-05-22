@@ -291,7 +291,7 @@ WITH{
 
 constexpr size_t CMP_SCAN_SIZE = 32 * 1024;  // 32 KiB
 
-WITH CMP_TO(ref) TRACE
+WITH CMP_TO(ref)
 {
 
 	for (size_t i = 0; i < CMP_SCAN_SIZE / 8; i++) {
@@ -302,17 +302,16 @@ WITH CMP_TO(ref) TRACE
 	}
 } AS("cmp: word");
 
-WITH CMP_TO(ref) TRACE
+WITH CMP_TO(ref) /* DEBUG TRACE */
 {
 
 	for (size_t i = 0; i < CMP_SCAN_SIZE / 2; i++) {
 		dbus->storeh(2 * i, randi<uint16_t>());
 		dbus->loadh(2 * i);
-
 	}
 } AS("cmp: halfword");
 
-WITH CMP_TO(ref) 
+WITH CMP_TO(ref) /* TRACE */
 {
 	for (size_t i = 0; i < CMP_SCAN_SIZE; i++) {
 		dbus->storeb(i, randi<uint8_t>());

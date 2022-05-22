@@ -21,20 +21,32 @@ module alu
 	output u64 c,
 	input u1 sign,cut,
 	output u1 e_wait
-
 );
 	u32 shift;
 	u64 norm_c,mul_c;
 	u128 div_c;
-	u1 done_mul,done_div;
+	u1 done_mul,done_div1,done_div2,done_div;
 	u1 zero;
 	assign zero=~|b;
-	// always_ff @( posedge clk ) begin
-	// 	if () begin
-	// 		pass
-	// 	end
-	// 	zero<=~|b;
-	// end
+	always_comb begin
+		if ((alufunc==DIV||alufunc==REM)&&cut) begin
+			done_div=done_div1;
+		end else  begin
+			done_div=done_div2;
+		end
+	end
+
+	u64 areg,breg;
+	// always_ff @(posedge clk) begin
+    //     if((alufunc==DIV||alufunc==REM||alufunc==MUL)&&~e_wait) begin
+    //         areg<=a;
+    //         breg<=b;
+    //     end else begin
+    //         areg<=areg;
+    //         breg<=breg;
+    //     end
+    // end
+
 	always_comb begin
 		norm_c= '0;shift='0;
 		unique case(alufunc)
@@ -67,6 +79,8 @@ module alu
 	end
 	// assign c=alufunc==MUL||alufunc==DIV||alufunc==REM?muldi
 	u64 res;
+	u32 res32;
+	u64 divc32;
 	always_comb begin
 		c='0;res='0;
 		unique case (alufunc)
@@ -76,30 +90,44 @@ module alu
 					c='1;
 				end
 				else begin
-					if ($signed(a)>=0&&$signed(b)<0&&sign) begin
+					if (cut) begin
+					if ((($signed(aincw)>=0&&$signed(bincw)<0)||($signed(aincw)<0&&$signed(bincw)>0))&&sign) begin
+						res32=-(divc32[31:0]);
+					end else begin
+						res32= divc32[31:0];
+					end
+					c={{32{res32[31]}},res32};
+					end else begin
+						if ((($signed(a)>=0&&$signed(b)<0)||($signed(a)<0&&$signed(b)>0))&&sign) begin
 						res=-(div_c[63:0]);
-					end else if ($signed(a)<0&&$signed(b)>=0&&sign) begin
-						res=-(div_c[63:0]+1);
-					end else if ($signed(a)<0&&$signed(b)<0&&sign) begin
-						res=(div_c[63:0]+1);
 					end else begin
 						res= div_c[63:0];
 					end
-					c=~cut?res:{{32{res[31]}},res[31:0]};
+					c=res;
+					end
+					
 				end
 			end 
 			REM:if(zero) begin
-					c=a;
+					c= cut?{{32{a[31]}},a[31:0]}:a;
 				end
 				else begin
-					if ($signed(a)<0&&$signed(b)>=0&&sign) begin
-						res=b -div_c[127:64];
-					end else if ($signed(a)<0&&$signed(b)<0&&sign) begin
-						res=-b - div_c[127:64];
+					if (cut) begin
+						if ($signed(aincw)<0&&sign) begin
+						res32=-divc32[63:32];
+					end else begin
+						res32= divc32[63:32];
+					end
+					c={{32{res32[31]}},res32};
+					end else begin
+						if ($signed(a)<0&&sign) begin
+						res=-div_c[127:64];
 					end else begin
 						res= div_c[127:64];
 					end
-					c=~cut?res:{{32{res[31]}},res[31:0]};
+					c=res;
+					end
+					
 				end
 			default: c=norm_c;
 		endcase
@@ -109,11 +137,27 @@ module alu
 		.clk,.reset,.valid(alufunc==MUL),
 		.a,.b,.c(mul_c),.done(done_mul)
 		);
-	divider_multicycle_from_single div(
-		.clk,.reset,.valid(alufunc==DIV||alufunc==REM),
-		.a(sign&&$signed(a)<0?-a:a),.b(sign&&$signed(b)<0?-b:b),.c(div_c),.done(done_div)
+	
+	divider_multicycle_from_single #(.WIDTH(32)) div32 (
+		.clk,.reset,.valid((alufunc==DIV||alufunc==REM)&&cut),
+		.a(sign&&$signed(aincw)<0?-aincw:aincw),.b(sign&&$signed(bincw)<0?-bincw:bincw),.c(divc32),.done(done_div1)
 	);
+	divider_multicycle_from_single #(.WIDTH(64)) div64 (
+		.clk,.reset,.valid((alufunc==DIV||alufunc==REM)&&~cut),
+		.a(sign&&$signed(a)<0?-a:a),.b(sign&&$signed(b)<0?-b:b),.c(div_c),.done(done_div2)
+	);
+	u32 ainc,binc;
+	u32 aincw,bincw;
+	assign aincw=a[31:0];
+	assign bincw=b[31:0];
 
+	// always_comb begin
+	// 	{ainc,binc}='0;
+	// 	if (cut) begin
+	// 		ainc=a[31:0];
+	// 		binc=b[31:0];
+	// 	end 
+	// end
 	assign e_wait=(alufunc==MUL&&~done_mul)||(alufunc==DIV&&~done_div)||(alufunc==REM&&~done_div);
 endmodule
 

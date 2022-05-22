@@ -25,8 +25,8 @@ u64 alu_result;
 word_t alu_a,alu_b;
 u64 srca,srcb;
 u64 pcAdded;
-    mux3 forward_rd1(.d0(dataD.srca),.d1(aluoutM),.d2(resultW),.s(forwardaE),.y(srca));
-    mux3 forward_rd2(.d0(dataD.srcb),.d1(aluoutM),.d2(resultW),.s(forwardbE),.y(srcb));
+    mux3 forward_rd1(.d0(dataD.srca),.d1(resultW),.d2(aluoutM),.s(forwardaE),.y(srca));
+    mux3 forward_rd2(.d0(dataD.srcb),.d1(resultW),.d2(aluoutM),.s(forwardbE),.y(srcb));
 
     aluabselector aluabselector(
         .selectA(dataD.ctl.selectA),
@@ -44,7 +44,7 @@ u64 pcAdded;
 
     assign dataE.pc=dataD.pc;
     assign dataE.sextimm=dataD.sextimm;
-    assign dataE.srcb=dataD.srcb;
+    assign dataE.srcb=srcb;
     assign dataE.dst=dataD.rd;
     // assign dataE.ctl=dataD.ctl;
     assign dataE.pc=dataD.pc;

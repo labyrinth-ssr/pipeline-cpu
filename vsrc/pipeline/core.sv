@@ -34,8 +34,7 @@ module core
 	u64 pc,pc_nxt;
 	u32 raw_instr;
 	u1 stallF,stallD,flushD,flushE,flushM,flushW,stallM,stallE;
-	u1 forwardaD,forwardbD;
-	u2 forwardaE,forwardbE;
+	u2 forwardaD,forwardbD,forwardaE,forwardbE;
 	u1 i_wait,d_wait,e_wait;
     creg_addr_t edst,mdst,wdst;
 	assign edst=dataE_nxt.dst;
@@ -51,7 +50,7 @@ module core
 	assign i_wait=ireq.valid && ~iresp.data_ok;
 	assign d_wait=dreq.valid && ~dresp.data_ok;
 	hazard hazard(
-		.stallF,.stallD,.flushD,.flushE,.flushM,.edst,.mdst,.wdst,.ra1,.ra2,.wrE,.wrM,.wrW,.i_wait,.d_wait,.stallM,.stallE,.flushW,.memwrE(dataD.ctl.wbSelect==2'b1),.memwrM(dataE.ctl.wbSelect==2'b1),.forwardaE,.forwardbE,.forwardaD,.forwardbD,.dbranch(dataD_nxt.pcSrc),.ra1E(dataD.ra1),.ra2E(dataD.ra2),.e_wait
+		.stallF,.stallD,.flushD,.flushE,.flushM,.edst,.mdst,.wdst,.ra1,.ra2,.wrE,.wrM,.wrW,.i_wait,.d_wait,.stallM,.stallE,.flushW,.memwrE(dataD.ctl.wbSelect==2'b1),.memwrM(dataE.ctl.wbSelect==2'b1),.forwardaE,.forwardbE,.forwardaD,.forwardbD,.dbranch(dataD_nxt.pcSrc),.dbranch2(dataD_nxt.ctl.branch!='0),.ra1E(dataD.ra1),.ra2E(dataD.ra2),.e_wait,.multialud(dataD_nxt.ctl.alufunc==MUL||dataD_nxt.ctl.alufunc==DIV||dataD_nxt.ctl.alufunc==REM),.multialuM(dataM_nxt.ctl.alufunc==MUL||dataM_nxt.ctl.alufunc==DIV||dataM_nxt.ctl.alufunc==REM),.multialuE(dataE_nxt.ctl.alufunc==MUL||dataE_nxt.ctl.alufunc==DIV||dataE_nxt.ctl.alufunc==REM)
 	);
 	pcreg pcreg(
 		.clk,.reset,
@@ -72,15 +71,21 @@ module core
 	u64 pc_save;
 	u32 raw_instr_save;
 	u1 fetched;
+	u1 de_wait;
+	assign de_wait=e_wait|d_wait;
 
 	always_ff @(posedge clk ) begin
-		if (e_wait&&iresp.data_ok) begin
+		if (de_wait&&iresp.data_ok) begin
 			pc_save<=pc;
 			raw_instr_save<=raw_instr;
 			fetched<='1;
-		end else if (~e_wait) begin
+		end else if (~de_wait) begin
 			{pc_save,raw_instr_save,fetched}<='0;
 		end
+	end
+
+	always_ff @(posedge clk ) begin
+		// $display("%x %d %d %d",pc,i_wait,d_wait,stallF);
 	end
 
 	pcselect pcselect(
@@ -91,8 +96,8 @@ module core
 	);
 
 	fetch fetch(
-		.raw_instr(fetched&&~e_wait?raw_instr_save:raw_instr),
-		.pc(fetched&&~e_wait?pc_save:pc),
+		.raw_instr(fetched&&~de_wait ?raw_instr_save:raw_instr),
+		.pc(fetched&&~de_wait?pc_save:pc),
 		.dataF(dataF_nxt)
 	);
 
@@ -108,8 +113,20 @@ module core
 		.dataF(dataF),
 		.dataD(dataD_nxt),
 		.ra1,.ra2,.rd1,.rd2,
-		.aluoutM(dataE.alu_out),.forwardaD,.forwardbD
+		.aluoutM,.forwardaD,.forwardbD,.resultW(dataW.wd)
 	);
+	u64 aluoutM;
+    always_comb begin
+        aluoutM='0;
+        unique case(dataM_nxt.ctl.wbSelect)
+            2'b00:aluoutM=dataM_nxt.alu_out;
+            2'b01:aluoutM=dataM_nxt.rd;
+            2'b10:aluoutM=dataM_nxt.pc+4;
+            2'b11:aluoutM=dataM_nxt.sextimm;
+            default:begin end
+    endcase
+    end
+
 	regfile regfile(
 		.clk, .reset,
 		.ra1,
@@ -132,7 +149,7 @@ module core
 		.dataD(dataD),
 		.dataE(dataE_nxt),
 		.forwardaE,.forwardbE,
-		.aluoutM(dataE.alu_out),.resultW(dataW.wd),.e_wait
+		.aluoutM,.resultW(dataW.wd),.e_wait
 	);
 	assign stallM = dreq.valid && ~dresp.data_ok;
 	assign flushW = dreq.valid && ~dresp.data_ok;

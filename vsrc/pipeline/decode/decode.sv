@@ -20,8 +20,8 @@ module decode
         output decode_data_t dataD,
         output creg_addr_t ra1,ra2,
         input word_t rd1,rd2,
-        input u64 aluoutM,
-        input forwardaD,forwardbD
+        input u64 aluoutM,resultW,
+        input u2 forwardaD,forwardbD
 );
     control_t ctl;
     u64 sextimm,adder_res,adder_a;
@@ -30,7 +30,7 @@ module decode
         .ctl(ctl)
     );
     mux2 addera_mux(
-        .d0(dataF.pc),.d1(rd1),.s(ctl.pcTarget),.y(adder_a)
+        .d0(dataF.pc),.d1(branch_inputa),.s(ctl.pcTarget),.y(adder_a)
     );
     adder adder(
         .a(adder_a),.b(sextimm),.y(adder_res)
@@ -40,8 +40,11 @@ module decode
     );
 
     u64 branch_inputa,branch_inputb;
-    mux2 branch_srca(.d0(rd1),.d1(aluoutM),.s(forwardaD),.y(branch_inputa));
-    mux2 branch_srcb(.d0(rd2),.d1(aluoutM),.s(forwardbD),.y(branch_inputb));
+    // mux2 branch_srca(.d0(rd1),.d1(aluoutM),.s(forwardaD),.y(branch_inputa));
+    // mux2 branch_srcb(.d0(rd2),.d1(aluoutM),.s(forwardbD),.y(branch_inputb));
+
+    mux3 branch_srca(.d0(rd1),.d1(resultW),.d2(aluoutM),.s(forwardaD),.y(branch_inputa));
+    mux3 branch_srcb(.d0(rd2),.d1(resultW),.d2(aluoutM),.s(forwardbD),.y(branch_inputb));
 
     sext sext(
         .op(ctl.op),
@@ -52,8 +55,8 @@ module decode
         .branch(ctl.branch),.pcSrc(dataD.pcSrc),.srca(branch_inputa),.srcb(branch_inputb)
     );
     assign dataD.raw_instr=dataF.raw_instr;
-    assign dataD.srca=rd1;
-    assign dataD.srcb=rd2;
+    assign dataD.srca=branch_inputa;
+    assign dataD.srcb=branch_inputb;
     assign dataD.ctl=ctl;
     assign dataD.rd=dataF.raw_instr[11:7];
     assign dataD.pc=dataF.pc;

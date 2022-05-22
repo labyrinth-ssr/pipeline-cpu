@@ -19,7 +19,6 @@ import common::*;
     assign dataW.wa=dataM.dst;
     assign dataW.valid=dataM.valid;
 
-
     always_comb begin
         dataW.wd='0;
         unique case(dataM.ctl.wbSelect)

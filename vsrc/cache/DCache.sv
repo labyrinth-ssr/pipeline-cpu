@@ -13,8 +13,8 @@ module DCache
 		/* You can modify this part to support more parameters */
 		/* e.g. OFFSET_BITS, INDEX_BITS, TAG_BITS */
         parameter WORDS_PER_LINE = 16,
-        parameter ASSOCIATIVITY = 2,
-        parameter SET_NUM = 8
+        parameter ASSOCIATIVITY = 4,
+        parameter SET_NUM = 4
 	)(
 	input logic clk, reset,
 	input  dbus_req_t  dreq,
@@ -44,6 +44,9 @@ module DCache
         u1 dirty;
         tag_t tag;
     } meta_t;
+    u2 [ASSOCIATIVITY-1:0] set_lru;
+    u2 [SET_NUM*ASSOCIATIVITY-1:0] lru_reg;
+
     localparam META_BITS = $bits(meta_t);
     localparam type rmeta_t = logic [$bits(meta_t) * ASSOCIATIVITY-1:0];
     localparam type data_index_t = logic [DATA_INDEX_BITS-1:0];
@@ -80,18 +83,24 @@ module DCache
     logic [ASSOCIATIVITY-1:0] valid_signal;
     asoc_index_t hit_index,empty_index;
     asoc_index_t replace_index;
+    asoc_index_t replace_index_in;
+
     u1 fetched,flushed;
     offset_t offset;
     data_index_t data_index;
 
-
+    for (genvar i = 0; i < SET_NUM; i++) begin
+		assign meta_rdata_arr[i] = meta_rdata[META_BITS*(i+1)-1:i*META_BITS];
+        assign meta_ram.wdata[META_BITS*(i+1)-1:i*META_BITS]=meta_wdata_arr[i];
+	end
     assign set_index=ram_reset?counter: get_index(dreq.addr);
-    assign meta_rdata_arr[1]=meta_rdata[META_BITS*2-1:META_BITS];
-    assign meta_rdata_arr[0]=meta_rdata[META_BITS-1:0];
+
+    // assign meta_rdata_arr[1]=meta_rdata[META_BITS*2-1:META_BITS];
+    // assign meta_rdata_arr[0]=meta_rdata[META_BITS-1:0];
     assign creq.valid    = state == FETCH || state == FLUSH ||state == UNCACHE ;
     assign creq.is_write = state == FLUSH ||(state == UNCACHE&&(|dreq.strobe));
     assign creq.size     = state == UNCACHE? dreq.size:MSIZE8;
-    assign creq.addr     = state == FLUSH? {meta_rdata_arr[1].tag,set_index,7'b0} : {dreq.addr[63:7],7'b0};
+    assign creq.addr     = state == FLUSH? {meta_rdata_arr[replace_index].tag,set_index,7'b0} : {dreq.addr[63:7],7'b0};
     assign creq.strobe   = state == UNCACHE? dreq.strobe: 8'b11111111; 
     assign creq.data     = state == UNCACHE?dreq.data: data_rdata;
     assign creq.len      = state ==UNCACHE?MLEN1:MLEN16;//word_per_line
@@ -100,7 +109,7 @@ module DCache
     assign dresp.data= state == UNCACHE? cresp.data:cache_rdata;
     assign dresp.data_ok = hit;
     assign dresp.addr_ok = state == INIT||state==UNCACHE;
-    assign meta_ram.wdata={meta_wdata_arr[1],meta_wdata_arr[0]};
+    // assign meta_ram.wdata={meta_wdata_arr[1],meta_wdata_arr[0]};
 
     always_ff @(posedge clk) begin
     if (~reset) begin
@@ -121,6 +130,9 @@ module DCache
             end
         end
         INIT:begin if (dreq.valid) begin
+            for (int i=0; i<ASSOCIATIVITY; ++i) begin
+                lru_reg[set_index*ASSOCIATIVITY+i]<=set_lru[i];
+            end
             ram_reset<='0;
             state  <= dreq.addr[31] == 0?UNCACHE:INIT;
             // req    <= dreq;
@@ -129,16 +141,16 @@ module DCache
             flushed<='0;
             if (hit) begin
                 state<=INIT;
-            end else if (is_full&& meta_rdata_arr[1].dirty) begin
+            end else if (is_full&& meta_rdata_arr[replace_index_in].dirty) begin
                 state<=FLUSH;
+                replace_index<=replace_index_in;
             end else begin
                 state<=FETCH;
+                replace_index<=empty_index;
             end
-            replace_index<=empty_index;
         end
         end
         FETCH: begin
-            // replace_index<=flushed?1:empty_index;
             offset<='0;
         if (cresp.ready) begin
             offset <= offset + 1;
@@ -151,7 +163,6 @@ module DCache
         end
         end
         FLUSH: begin
-            replace_index<=1;
             if (cresp.ready) begin
             state  <= cresp.last ? FETCH : FLUSH;
             offset <= offset + 1;
@@ -164,16 +175,21 @@ module DCache
     end else begin
         // {req, offset} <= '0;
         // offset<='0;
-        counter<= counter==7?0:(counter+1);
+        counter_temp<=SET_NUM-1;
+        counter<= counter==counter_temp[INDEX_BITS-1:0]?0:(counter+1);
         ram_reset<=reset;
         // fetched<='0;
         // flushed<='0;
     end
     end
+    int counter_temp;
 
     always_comb begin
-        meta_ram = '0;data_ram='0; hit='0;meta_signal='0;data_index='0;empty_index='0;valid_signal='0;is_full='0;meta_wdata_arr[1]=meta_rdata[META_BITS*2-1:META_BITS];
-        meta_wdata_arr[0]=meta_rdata[META_BITS-1:0];
+        meta_ram = '0;data_ram='0; hit='0;meta_signal='0;data_index='0;empty_index='0;valid_signal='0;is_full='0;
+        meta_wdata_arr=meta_rdata;replace_index_in='0;
+        for (int i=0; i<ASSOCIATIVITY; ++i) begin
+                set_lru[i]=lru_reg[set_index*ASSOCIATIVITY+i];
+            end
     unique case (state)
     // IDLE:begin
     //     if (ram_reset) begin
@@ -186,12 +202,13 @@ module DCache
     INIT: begin
         if (ram_reset) begin
             meta_ram.en='1;
-            meta_wdata_arr[0].valid='0;
-            meta_wdata_arr[1].valid='0;
+            for (int i=0; i<SET_NUM; ++i) begin
+                meta_wdata_arr[i].valid='0;
+                meta_wdata_arr[i].valid='0;
+            end
             meta_ram.strobe='1;
         end else begin
         if (fetched) begin
-
             meta_wdata_arr[replace_index].valid='1;
             meta_wdata_arr[replace_index].tag=get_tag(dreq.addr);
             meta_ram.strobe[replace_index]=1'b1;
@@ -212,20 +229,43 @@ module DCache
                 meta_ram.en='1;
                 data_ram.en='1;
                 data_ram.strobe=dreq.strobe;
-                data_index=set_index*(ASSOCIATIVITY*WORDS_PER_LINE)+i[0]*WORDS_PER_LINE+{4'b0,get_offset(dreq.addr)};
+                data_index=set_index*(ASSOCIATIVITY*WORDS_PER_LINE)+i[INDEX_BITS-1:0]*WORDS_PER_LINE+{4'b0,get_offset(dreq.addr)};
                 data_ram.wdata=dreq.data;
                 if (~(|dreq.strobe)) begin
                     meta_ram.strobe[i]=1'b1;
+                    meta_wdata_arr[i].dirty='1;
                 end
-                meta_wdata_arr[i].dirty='1;
+                for ( int j= 0 ;j<SET_NUM ; ++j) begin
+                    if (set_lru[j]<set_lru[i]) begin
+                        set_lru[j]+=1;
+                    end
+                end
+                set_lru[i]='0;
             end else if (~meta_rdata_arr[i].valid) begin
-                empty_index=i[0];
+                empty_index=i[INDEX_BITS-1:0];
             end 
         end
         hit=|meta_signal;
-        is_full=|valid_signal;
+        is_full=&valid_signal;
         if ((~hit)) begin
-            data_index=set_index*(ASSOCIATIVITY*WORDS_PER_LINE)+empty_index*WORDS_PER_LINE+{4'b0,get_offset(dreq.addr)};
+            if (~is_full) begin
+                for ( int j= 0;j<SET_NUM  ; ++j) begin
+                    if (j[INDEX_BITS-1:0]!=empty_index) begin
+                    set_lru[j]+=1;
+                    end
+                end
+                set_lru[empty_index]='0;
+            end else begin
+                for ( int j= 0;j<SET_NUM  ; ++j) begin
+                    if (set_lru[j]==3) begin
+                        replace_index_in=j[INDEX_BITS-1:0];
+                        set_lru[j]='0;
+                    end else begin
+                        set_lru[j]+=1;
+                    end
+                end
+            end
+            // data_index=set_index*(ASSOCIATIVITY*WORDS_PER_LINE)+empty_index*WORDS_PER_LINE+{4'b0,get_offset(dreq.addr)};
         end 
         end
         end
@@ -237,13 +277,12 @@ module DCache
         data_ram.en=1;
     end
     FLUSH:begin
-        data_index= set_index*(ASSOCIATIVITY*WORDS_PER_LINE)+1*WORDS_PER_LINE+{4'b0,offset};
+        data_index= set_index*(ASSOCIATIVITY*WORDS_PER_LINE)+replace_index*WORDS_PER_LINE+{4'b0,offset};
     end
     UNCACHE: hit='1;
     default: ;
     endcase
     end
-    
 
     RAM_SinglePort #(
 		.ADDR_WIDTH(DATA_INDEX_BITS),
