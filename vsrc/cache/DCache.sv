@@ -100,16 +100,28 @@ module DCache
     assign creq.valid    = state == FETCH || state == FLUSH ||state == UNCACHE ;
     assign creq.is_write = state == FLUSH ||(state == UNCACHE&&(|dreq.strobe));
     assign creq.size     = state == UNCACHE? dreq.size:MSIZE8;
-    assign creq.addr     = state == FLUSH? {meta_rdata_arr[replace_index].tag,set_index,7'b0} : {dreq.addr[63:7],7'b0};
+    // assign creq.addr     = state == FLUSH? {meta_rdata_arr[replace_index].tag,set_index,7'b0} : {dreq.addr[63:7],7'b0};
     assign creq.strobe   = state == UNCACHE? dreq.strobe: 8'b11111111; 
     assign creq.data     = state == UNCACHE?dreq.data: data_rdata;
     assign creq.len      = state ==UNCACHE?MLEN1:MLEN16;//word_per_line
 	assign creq.burst	 = state ==UNCACHE?AXI_BURST_FIXED:AXI_BURST_INCR;
     assign cache_rdata=data_rdata;
     assign dresp.data= state == UNCACHE? cresp.data:cache_rdata;
-    assign dresp.data_ok = hit;
+    assign dresp.data_ok = state==UNCACHE? cresp.last:hit;
     assign dresp.addr_ok = state == INIT||state==UNCACHE;
     // assign meta_ram.wdata={meta_wdata_arr[1],meta_wdata_arr[0]};
+
+    always_comb begin
+        creq.addr='0;
+        if (state==FLUSH) begin
+            creq.addr={meta_rdata_arr[replace_index].tag,set_index,7'b0};
+        end else if (state==UNCACHE) begin
+            creq.addr=dreq.addr;
+        end else begin
+            creq.addr={dreq.addr[63:7],7'b0};
+            
+        end
+    end
 
     always_ff @(posedge clk) begin
     if (~reset) begin
@@ -134,11 +146,13 @@ module DCache
                 lru_reg[set_index*ASSOCIATIVITY+i]<=set_lru[i];
             end
             ram_reset<='0;
-            state  <= dreq.addr[31] == 0?UNCACHE:INIT;
             // req    <= dreq;
             fetched<='0;
             offset<='0;
             flushed<='0;
+            if (dreq.addr[31] == 0) begin
+                state<=UNCACHE;
+            end else
             if (hit) begin
                 state<=INIT;
             end else if (is_full&& meta_rdata_arr[replace_index_in].dirty) begin
@@ -279,7 +293,7 @@ module DCache
     FLUSH:begin
         data_index= set_index*(ASSOCIATIVITY*WORDS_PER_LINE)+replace_index*WORDS_PER_LINE+{4'b0,offset};
     end
-    UNCACHE: hit='1;
+    UNCACHE: ;
     default: ;
     endcase
     end
