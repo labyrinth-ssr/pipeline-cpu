@@ -311,7 +311,7 @@ module DCache
 
     RAM_SinglePort #(
 		.ADDR_WIDTH(INDEX_BITS),
-		.DATA_WIDTH($bits(meta_t) * ASSOCIATIVITY),//meta读取,associavity�?
+		.DATA_WIDTH($bits(meta_t) * ASSOCIATIVITY),//meta读取,associavity�?
 		.BYTE_WIDTH($bits(meta_t)),
 		.READ_LATENCY(0)
     ) ram_meta(
