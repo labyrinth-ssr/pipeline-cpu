@@ -2,36 +2,23 @@
 `define __CORE_SV
 `ifdef VERILATOR
 `include "include/common.sv"
-`include "include/pipes.sv"
-//`include "include/interface.svh"
-`include "pipeline/fetch/fetch.sv"
-`include "pipeline/fetch/pcselect.sv"
-`include "pipeline/decode/decode.sv"
-`include "pipeline/execute/execute.sv"
-`include "pipeline/memory/memory.sv"
-`include "pipeline/writeback/writeback.sv"
-`include "pipeline/hazard/hazard.sv"
 `include "pipeline/regfile/regfile.sv"
-`include "pipeline/regfile/pipereg.sv"
-`include "pipeline/regfile/pcreg.sv"
-`include "pipeline/hazard/hazard.sv"
-`include "pipeline/mux/mux2.sv"
 
 `else
-//`include "include/interface.svh"
+
 `endif
 
 module core 
-	import common::*;
-	import pipes::*;(
-	input logic clk, reset,      
+	import common::*;(
+	input logic clk, reset,
 	output ibus_req_t  ireq,
 	input  ibus_resp_t iresp,
 	output dbus_req_t  dreq,
-	input  dbus_resp_t dresp
+	input  dbus_resp_t dresp,
+	input logic trint, swint, exint
 );
 	/* TODO: Add your pipeline here. */
-	u64 pc,pc_nxt;
+u64 pc,pc_nxt;
 	u32 raw_instr;
 	u1 stallF,stallD,flushD,flushE,flushM,flushW,stallM,stallE;
 	u2 forwardaD,forwardbD,forwardaE,forwardbE;
@@ -127,16 +114,7 @@ module core
     endcase
     end
 
-	regfile regfile(
-		.clk, .reset,
-		.ra1,
-		.ra2,
-		.rd1,//取出的数�?
-		.rd2,
-		.wvalid(dataW.ctl.regWrite),
-		.wa(dataW.wa/* 5'h0) */),
-		.wd(dataW.wd)
-	);
+
 	pipereg #(.T(decode_data_t)) ereg(
 		.clk,.reset,
 		.in(dataD_nxt),
@@ -179,20 +157,31 @@ module core
 		.dataM(dataM),
 		.dataW(dataW)
 	);
+	regfile regfile(
+		.clk, .reset,
+		.ra1,
+		.ra2,
+		.rd1,//取出的数�?
+		.rd2,
+		.wvalid(dataW.ctl.regWrite),
+		.wa(dataW.wa/* 5'h0) */),
+		.wd(dataW.wd)
+	);
+
 `ifdef VERILATOR
 	DifftestInstrCommit DifftestInstrCommit(
 		.clock              (clk),
 		.coreid             (0),
 		.index              (0),
-		.valid              (dataW.valid),
-		.pc                 (dataW.pc),
-		.instr              (raw_instr),
-		.skip               (dataW.ctl.memRw!=2'b00&& (dataW.alu_out[31]==0)),
+		.valid              (0),
+		.pc                 (0),
+		.instr              (0),
+		.skip               (0),
 		.isRVC              (0),
 		.scFailed           (0),
-		.wen                (dataW.ctl.regWrite),
-		.wdest              ({3'b0,dataW.wa}),
-		.wdata              (dataW.wd)
+		.wen                (0),
+		.wdest              (0),
+		.wdata              (0)
 	);
 	      
 	DifftestArchIntRegState DifftestArchIntRegState (
@@ -247,7 +236,7 @@ module core
 		.coreid             (0),
 		.priviledgeMode     (3),
 		.mstatus            (0),
-		.sstatus            (0),
+		.sstatus            (0 /* mstatus & 64'h800000030001e000 */),
 		.mepc               (0),
 		.sepc               (0),
 		.mtval              (0),
