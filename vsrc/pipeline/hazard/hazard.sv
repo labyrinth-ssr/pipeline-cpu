@@ -9,27 +9,50 @@
 module hazard
 import common::*;
 import pipes::*;(
-    output u1 stallF,stallD,flushD,flushE,flushM,stallM,stallE,
+    output u1 stallF,stallD,flushD,flushE,flushM,stallM,stallE,flushW,
     input creg_addr_t edst,mdst,wdst,
     input dbranch,i_wait,d_wait,e_wait,dbranch2,multialud,multialuM,multialuE,
     input creg_addr_t ra1,ra2,ra1E,ra2E,
     input wrE,wrM,wrW,
     input memwrE,memwrM,
-    output u2 forwardaD,forwardbD,forwardaE,forwardbE
+    input mretW,
+    output u2 forwardaD,forwardbD,forwardaE,forwardbE,
+    input clk
 );
 u1 branch_stall,lwstall,multi_stall;
+u1 mret_dwait,mret_dwait_nxt,mret_iwait,mret_iwait_nxt;
+u64 int_save;
+
+always_ff @(posedge clk) begin
+        mret_dwait<=mret_dwait_nxt;
+        mret_iwait<=mret_iwait_nxt;
+end
+
 
     always_comb begin
         stallF='0;stallD='0;flushD='0;flushE='0;flushM='0;
-        stallM='0;stallE='0;branch_stall='0;lwstall='0;
-        if (e_wait) begin
+        stallM='0;stallE='0;branch_stall='0;lwstall='0;mret_dwait_nxt=mret_dwait;mret_iwait_nxt=mret_iwait;
+        if (mretW) begin
+            flushD='1;flushE='1;flushM='1;flushW='1;
+            if (i_wait) begin
+                mret_iwait_nxt='1;
+                stallF='1;flushD='1;
+            end
+            // if (d_wait) begin
+            //     stallM='1;flushM='0;mret_dwait_nxt='1;stallE='1;stallF='1;stallD='1;
+            // end
+        end
+        else if (e_wait) begin
             stallE='1;flushM='1;stallF='1;stallD='1;
             if (d_wait) begin
-                stallM='1;flushM='0;
+                stallM='1;flushM='0;flushW='1;
             end 
         end
         else if(d_wait) begin
-            stallM='1;stallE='1;stallF='1;stallD='1;
+            stallM='1;stallE='1;stallF='1;stallD='1;flushW='1;
+            if (mretW) begin
+                mret_dwait_nxt='1;
+            end
         end else if (i_wait) begin
             stallF='1;flushD='1;
             if (dbranch) begin
@@ -39,13 +62,14 @@ u1 branch_stall,lwstall,multi_stall;
                 flushE='1;
             end
             multi_stall=multialud && ((wrE&&(edst==ra1||edst==ra2))||(memwrM&& (mdst==ra1||mdst==ra2)) || (((ra1!=0&&ra1==mdst && wrM)||(ra2!=0&&ra2==mdst && wrM))) );
-            branch_stall=dbranch2 && ((wrE&&(edst==ra1||edst==ra2))||(memwrM&& (mdst==ra1||mdst==ra2)) );
+            branch_stall=dbranch2 && ((wrE&&(edst==ra1||edst==ra2))||(memwrM&& (mdst==ra1||mdst==ra2)));
 
             if (multi_stall||branch_stall) begin
                 flushD='0;
                 stallD='1;
                 flushE='1;
             end
+            
         end  
         else begin
             branch_stall=dbranch2 && ((wrE&&(edst==ra1||edst==ra2))||(memwrM&& (mdst==ra1||mdst==ra2)) );
@@ -55,6 +79,14 @@ u1 branch_stall,lwstall,multi_stall;
             stallF=stallD;
             flushE=stallD;
             flushD=branch_stall? '0:dbranch;
+        end
+        if (~d_wait&&mret_dwait) begin
+            flushW='1;
+            mret_dwait_nxt='0;
+        end
+        if (~i_wait&&mret_iwait) begin
+            flushD='1;
+            mret_iwait_nxt='0;
         end
     end
 

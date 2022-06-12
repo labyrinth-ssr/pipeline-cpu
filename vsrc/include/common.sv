@@ -236,7 +236,7 @@ package common;
   typedef enum i2 {
 	AXI_BURST_FIXED = '0,
 	AXI_BURST_INCR,
-	AXI_BURST_WRAP,
+	AXI_BURST_WRAP, 
 	AXI_BURST_RESERVED
 } axi_burst_type_t;
  typedef struct packed {

@@ -3,13 +3,27 @@
 `ifdef VERILATOR
 `include "include/common.sv"
 `include "pipeline/regfile/regfile.sv"
+`include "pipeline/fetch/fetch.sv"
+`include "pipeline/fetch/pcselect.sv"
+`include "pipeline/decode/decode.sv"
+`include "pipeline/execute/execute.sv"
+`include "pipeline/memory/memory.sv"
+`include "pipeline/writeback/writeback.sv"
+`include "pipeline/hazard/hazard.sv"
+`include "pipeline/regfile/regfile.sv"
+`include "pipeline/regfile/pipereg.sv"
+`include "pipeline/regfile/pcreg.sv"
+`include "pipeline/hazard/hazard.sv"
+`include "pipeline/writeback/csr_pkg.sv"
+`include "pipeline/mux/mux2.sv"
 
 `else
 
 `endif
 
 module core 
-	import common::*;(
+	import common::*;
+	import csr_pkg::*;(
 	input logic clk, reset,
 	output ibus_req_t  ireq,
 	input  ibus_resp_t iresp,
@@ -18,15 +32,22 @@ module core
 	input logic trint, swint, exint
 );
 	/* TODO: Add your pipeline here. */
-u64 pc,pc_nxt;
+	u64 pc,pc_nxt;
 	u32 raw_instr;
+	u2 mode_out;
 	u1 stallF,stallD,flushD,flushE,flushM,flushW,stallM,stallE;
 	u2 forwardaD,forwardbD,forwardaE,forwardbE;
 	u1 i_wait,d_wait,e_wait;
+	u12 csra;
+	u1 is_mret,is_INTEXC;
     creg_addr_t edst,mdst,wdst;
 	assign edst=dataE_nxt.dst;
 	assign mdst=dataM_nxt.dst;
 	assign wdst=dataW.wa;
+	u64 mepc,mtvec;
+	u1 inter_valid;
+	csr_regs_t regs_out;
+
     // u1 ebranch;
 	// assign ebranch=dataE_nxt.ctl.pcSrc;
     creg_addr_t ra1,ra2;
@@ -37,27 +58,29 @@ u64 pc,pc_nxt;
 	assign i_wait=ireq.valid && ~iresp.data_ok;
 	assign d_wait=dreq.valid && ~dresp.data_ok;
 	hazard hazard(
-		.stallF,.stallD,.flushD,.flushE,.flushM,.edst,.mdst,.wdst,.ra1,.ra2,.wrE,.wrM,.wrW,.i_wait,.d_wait,.stallM,.stallE,.memwrE(dataD.ctl.wbSelect==2'b1),.memwrM(dataE.ctl.wbSelect==2'b1),.forwardaE,.forwardbE,.forwardaD,.forwardbD,.dbranch(dataD_nxt.pcSrc),.dbranch2(dataD_nxt.ctl.branch!='0),.ra1E(dataD.ra1),.ra2E(dataD.ra2),.e_wait,.multialud(dataD_nxt.ctl.alufunc==MUL||dataD_nxt.ctl.alufunc==DIV||dataD_nxt.ctl.alufunc==REM),.multialuM(dataM_nxt.ctl.alufunc==MUL||dataM_nxt.ctl.alufunc==DIV||dataM_nxt.ctl.alufunc==REM),.multialuE(dataE_nxt.ctl.alufunc==MUL||dataE_nxt.ctl.alufunc==DIV||dataE_nxt.ctl.alufunc==REM)
+		.stallF,.stallD,.flushD,.flushE,.flushM,.edst,.mdst,.wdst,.ra1,.ra2,.wrE,.wrM,.wrW,.i_wait,.d_wait,.stallM,.stallE,.memwrE(dataD.ctl.wbSelect==2'b1),.memwrM(dataE.ctl.wbSelect==2'b1),.forwardaE,.forwardbE,.forwardaD,.forwardbD,.dbranch(dataD_nxt.pcSrc),.dbranch2(dataD_nxt.ctl.branch!='0),.ra1E(dataD.ra1),.ra2E(dataD.ra2),.e_wait,.multialud(dataD_nxt.ctl.alufunc==MUL||dataD_nxt.ctl.alufunc==DIV||dataD_nxt.ctl.alufunc==REM),.multialuM(dataM_nxt.ctl.alufunc==MUL||dataM_nxt.ctl.alufunc==DIV||dataM_nxt.ctl.alufunc==REM),.multialuE(dataE_nxt.ctl.alufunc==MUL||dataE_nxt.ctl.alufunc==DIV||dataE_nxt.ctl.alufunc==REM),.clk,.flushW,.mretW(is_mret||is_INTEXC)
 	);
 	pcreg pcreg(
 		.clk,.reset,
 		.pc,
-		.pc_nxt,
+		.pc_nxt(~d_wait&&~i_wait&&ipc_saved?ipc_save: pc_nxt),
 		.en(~(stallF)),
 		.flush('0)
 	);
-	assign ireq.addr=pc;
-	assign ireq.valid=1'b1;
+	u64 fetch_pc,fetchin_pc;
+	assign ireq.addr= pc;
+	// assign fetch_pc=pcselect_saved&&~d_wait?pcselected_save:pc;
+	assign ireq.valid=pc[1:0]!=2'b00 ? '0:1'b1;
 
-	assign raw_instr=iresp.data;
+	assign raw_instr=pc[1:0]!=2'b00 ? '0:iresp.data;
 	fetch_data_t dataF,dataF_nxt;
 	decode_data_t dataD,dataD_nxt;
 	execute_data_t dataE,dataE_nxt;
 	memory_data_t dataM,dataM_nxt;
 	writeback_data_t dataW;
-	u64 pc_save;
-	u32 raw_instr_save;
-	u1 fetched;
+	u64 pc_save,pcselected_save,ipc_save;
+	u32 raw_instr_save,fetchin_rawinstr;
+	u1 fetched,pcselect_saved,ipc_saved;
 	u1 de_wait;
 	assign de_wait=e_wait|d_wait;
 
@@ -71,22 +94,64 @@ u64 pc,pc_nxt;
 		end
 	end
 
-	always_ff @(posedge clk ) begin
-		// $display("%x %d %d %d",pc,i_wait,d_wait,stallF);
-	end
+	// always_ff @(posedge clk ) begin
+		
+	// 		$display("%x %x",fetch_pc,pc_nxt);
+	// end
 
 	pcselect pcselect(
 		.pcplus4(pc+4),
 		.pc_selected(pc_nxt),
 		.pc_branch(dataD_nxt.target),
-		.branch_taken(dataD_nxt.pcSrc)
+		.branch_taken(dataD_nxt.pcSrc),
+		.mepc,.mtvec,
+		.is_mret,
+		.is_INTEXC
 	);
 
+	// always_ff @(posedge clk) begin
+	// 	if (d_wait&&is_INTEXC) begin
+	// 		pcselected_save<=pc_nxt;
+	// 		pcselect_saved<='1;
+	// 	end else if (~d_wait) begin
+	// 		pcselected_save<='0;
+	// 		pcselect_saved<='0;
+	// 	end
+	// end
+
+	always_ff @(posedge clk) begin
+		if ((i_wait||d_wait)&&is_INTEXC) begin
+			ipc_save<=pc_nxt;
+			ipc_saved<='1;
+		end else if (~i_wait&&~d_wait) begin
+			ipc_save<='0;
+			ipc_saved<='0;
+		end
+	end
+
+	always_comb begin
+		fetchin_pc=pc;
+		fetchin_rawinstr=raw_instr;
+		if (pcselect_saved&&~d_wait) begin
+		fetchin_rawinstr=raw_instr;
+			fetchin_pc=pc;
+		end else if (fetched&&~de_wait) begin
+		fetchin_rawinstr=raw_instr_save;
+			fetchin_pc=pc_save;
+		end
+	end
+
 	fetch fetch(
-		.raw_instr(fetched&&~de_wait ?raw_instr_save:raw_instr),
-		.pc(fetched&&~de_wait?pc_save:pc),
-		.dataF(dataF_nxt)
+		.raw_instr(fetchin_rawinstr),
+		.pc(fetchin_pc),
+		.dataF(dataF_nxt),
+		.exception(fetchin_pc[1:0]!=2'b00),
+		.trint,
+		.swint,
+		.exint
 	);
+
+	
 
 	pipereg #(.T(fetch_data_t)) dreg(
 		.clk,.reset,
@@ -129,7 +194,8 @@ u64 pc,pc_nxt;
 		.forwardaE,.forwardbE,
 		.aluoutM,.resultW(dataW.wd),.e_wait
 	);
-	assign stallM = dreq.valid && ~dresp.data_ok;
+	
+	// assign stallM = dreq.valid && ~dresp.data_ok;
 	assign flushW = dreq.valid && ~dresp.data_ok;
 
 	pipereg #(.T(execute_data_t)) mreg(
@@ -143,7 +209,8 @@ u64 pc,pc_nxt;
 		.dataE(dataE),
 		.dataM(dataM_nxt),
 		.dresp,
-		.dreq
+		.dreq,
+		.exception(is_mret||is_INTEXC)
 	);
 	pipereg #(.T(memory_data_t)) wreg(
 		.clk,.reset,
@@ -153,35 +220,55 @@ u64 pc,pc_nxt;
 		.flush(flushW)
 	);
 
+	assign inter_valid=~i_wait;
 	writeback writeback (
+		.clk,
+		.reset,
 		.dataM(dataM),
-		.dataW(dataW)
+		.dataW(dataW),
+		.mepc,
+		.mtvec,
+		.is_mret,
+		.is_INTEXC,
+		.regs_out,
+		.mode_out,
+		.inter_valid
 	);
 	regfile regfile(
 		.clk, .reset,
 		.ra1,
 		.ra2,
-		.rd1,//取出的数�?
+		.rd1,
 		.rd2,
 		.wvalid(dataW.ctl.regWrite),
-		.wa(dataW.wa/* 5'h0) */),
+		.wa(dataW.wa),
 		.wd(dataW.wd)
+		
 	);
+	// csr csr(
+	// 	.clk,.reset,
+	// 	.ra(csra),
+	// 	.wa(csra),
+	// 	.wd(dataW.)
+	// );
+	// input u64 wd,
+	// output u64 rd,mepc,
+	// input u1 valid,is_mret
 
 `ifdef VERILATOR
 	DifftestInstrCommit DifftestInstrCommit(
 		.clock              (clk),
 		.coreid             (0),
 		.index              (0),
-		.valid              (0),
-		.pc                 (0),
-		.instr              (0),
-		.skip               (0),
+		.valid              (dataW.valid),
+		.pc                 (dataW.pc),
+		.instr              (raw_instr),
+		.skip               ((dataW.ctl.memRw!=2'b00&& (dataW.alu_out[31]==0))||dataW.pc[1:0]!=2'b00),
 		.isRVC              (0),
 		.scFailed           (0),
-		.wen                (0),
-		.wdest              (0),
-		.wdata              (0)
+		.wen                (dataW.ctl.regWrite),
+		.wdest              ({3'b0,dataW.wa}),
+		.wdata              (dataW.wd)
 	);
 	      
 	DifftestArchIntRegState DifftestArchIntRegState (
@@ -231,28 +318,28 @@ u64 pc,pc_nxt;
 		.instrCnt           (0)
 	);
 	      
-	DifftestCSRState DifftestCSRState(
-		.clock              (clk),
-		.coreid             (0),
-		.priviledgeMode     (3),
-		.mstatus            (0),
-		.sstatus            (0 /* mstatus & 64'h800000030001e000 */),
-		.mepc               (0),
-		.sepc               (0),
-		.mtval              (0),
-		.stval              (0),
-		.mtvec              (0),
-		.stvec              (0),
-		.mcause             (0),
-		.scause             (0),
-		.satp               (0),
-		.mip                (0),
-		.mie                (0),
-		.mscratch           (0),
-		.sscratch           (0),
-		.mideleg            (0),
-		.medeleg            (0)
-	      );
+		  DifftestCSRState DifftestCSRState(
+			.clock (clk),
+			.coreid (0),
+			.priviledgeMode (mode_out),
+			.mstatus (regs_out.mstatus),
+			.sstatus (regs_out.mstatus & 64'h800000030001e000),
+			.mepc (regs_out.mepc),
+			.sepc (0),
+			.mtval (regs_out.mtval),
+			.stval (0),
+			.mtvec (regs_out.mtvec),
+			.stvec (0),
+			.mcause (regs_out.mcause),
+			.scause (0),
+			.satp (0),
+			.mip (regs_out.mip),
+			.mie (regs_out.mie),
+			.mscratch (regs_out.mscratch),
+			.sscratch (0),
+			.mideleg (0),
+			.medeleg (0)
+		);
 	      
 	DifftestArchFpRegState DifftestArchFpRegState(
 		.clock              (clk),

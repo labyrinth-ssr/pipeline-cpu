@@ -51,6 +51,13 @@ u64 pcAdded;
     assign dataE.valid=dataD.valid;
     assign dataE.ctl=dataD.ctl;
     assign dataE.alu_out=dataD.ctl.extAluOut?{{32{alu_result[31]}},alu_result[31:0]}:alu_result;
+    always_comb begin
+        dataE.csr_ctl=dataD.csr_ctl;
+        dataE.csr_ctl.rs1rd=srca;
+    end
+    assign dataE.int_type=dataD.int_type;
+
+
 endmodule
 
 `endif 
