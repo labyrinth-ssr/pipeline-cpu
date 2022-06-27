@@ -21,3 +21,5 @@ read_latency
    应该在下一周期的上升沿返回data_ok。
 15:38 random step
 别管ik了
+草啊，我想出去玩啊orz。去商场逛逛？唉，还有两天。
+不想写了orzorzorzorz。你不写还能做什么呢，肚子不舒服吗？

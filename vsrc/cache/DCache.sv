@@ -12,9 +12,9 @@ module DCache
 	import common::*; #(
 		/* You can modify this part to support more parameters */
 		/* e.g. OFFSET_BITS, INDEX_BITS, TAG_BITS */
-        parameter WORDS_PER_LINE = 16,
-        parameter ASSOCIATIVITY = 4,
-        parameter SET_NUM = 4
+        parameter WORDS_PER_LINE = 32,
+        parameter ASSOCIATIVITY = 16,
+        parameter SET_NUM = 16
 	)(
 	input logic clk, reset,
 	input  dbus_req_t  dreq,
@@ -25,7 +25,8 @@ module DCache
 
 `ifndef REFERENCE_CACHE
 	/* TODO: Lab3 Cache */
-    // dbus_req_t req;
+    localparam ALIGN_BITS = $clog2(WORDS_PER_LINE)+3;
+    localparam READ_LATENCY = 1;
     localparam DATA_BITS = $bits(word_t)*WORDS_PER_LINE;
     localparam ASOC_BITS = $clog2(ASSOCIATIVITY);
     localparam DATA_INDEX_BITS = $clog2(SET_NUM*WORDS_PER_LINE*ASSOCIATIVITY);
@@ -84,6 +85,34 @@ module DCache
     asoc_index_t hit_index,empty_index;
     asoc_index_t replace_index;
     asoc_index_t replace_index_in;
+    logic [1:0] late_read_cnt;
+    dbus_req_t dreq_save;
+
+//计算失败的次数，与成功的次数，
+//对于每个dreq信号，在data_ok返回前是维持的，
+//对于每个hit,succ
+    real fail;
+    real succ;
+    real total;
+    logic[28:0] print_cnt;
+    always_ff @(posedge clk)begin
+        if(print_cnt[26] == 1)begin
+            $display();
+            $display("accuracy:%.2f%%", (total-fail)/total*100);
+            print_cnt <= '0;
+            fail <= '0;
+            total <= '0;
+        end else begin
+            print_cnt <= print_cnt + 1;
+            if (fetched||(state==UNCACHE&&cresp.last))begin
+                fail <= fail + 1;
+            end else if(dresp.data_ok) begin
+                total <= total + 1;
+            end
+        end
+    end
+
+    //初始化？
 
     u1 fetched;
     offset_t offset;
@@ -100,40 +129,38 @@ module DCache
     assign creq.valid    = state == FETCH || state == FLUSH ||state == UNCACHE ;
     assign creq.is_write = state == FLUSH ||(state == UNCACHE&&(|dreq.strobe));
     assign creq.size     = state == UNCACHE? dreq.size:MSIZE8;
-    // assign creq.addr     = state == FLUSH? {meta_rdata_arr[replace_index].tag,set_index,7'b0} : {dreq.addr[63:7],7'b0};
     assign creq.strobe   = state == UNCACHE? dreq.strobe: 8'b11111111; 
     assign creq.data     = state == UNCACHE?dreq.data: data_rdata;
-    assign creq.len      = state ==UNCACHE?MLEN1:MLEN16;//word_per_line
+    assign creq.len      = state ==UNCACHE?MLEN1:MLEN32;//word_per_line
 	assign creq.burst	 = state ==UNCACHE?AXI_BURST_FIXED:AXI_BURST_INCR;
     assign cache_rdata=data_rdata;
     assign dresp.data= state == UNCACHE? cresp.data:cache_rdata;
-    assign dresp.data_ok = state==UNCACHE? cresp.last:hit;
+    assign dresp.data_ok = state==UNCACHE? cresp.last:(((|dreq.strobe)&&hit)||late_read_cnt==2'b01);
     assign dresp.addr_ok = state == INIT||state==UNCACHE;
     // assign meta_ram.wdata={meta_wdata_arr[1],meta_wdata_arr[0]};
+
+    always_ff @(posedge clk) begin
+        if (hit&&(~(|dreq.strobe))&&late_read_cnt!=2'b01) begin
+            late_read_cnt<= 2'b01;
+        end  else begin
+            late_read_cnt<= 2'b00;
+        end
+    end
 
     always_comb begin
         creq.addr='0;
         if (state==FLUSH) begin
-            creq.addr={dreq.addr[63:31],meta_rdata_arr[replace_index].tag,set_index,7'b0};
+            creq.addr={dreq.addr[63:31],meta_rdata_arr[replace_index].tag,set_index,{ALIGN_BITS{1'b0}}};
         end else if (state==UNCACHE) begin
             creq.addr=dreq.addr;
         end else begin
-            creq.addr={dreq.addr[63:7],7'b0};
-            
+            creq.addr={dreq.addr[63:ALIGN_BITS],{ALIGN_BITS{1'b0}}};
         end
     end
 
     always_ff @(posedge clk) begin
     if (~reset) begin
         unique case (state)
-        // IDLE: if (dreq.valid) begin
-        //     ram_reset<='0;
-        //     state  <= dreq.addr[31] == 0?UNCACHE:INIT;
-        //     // req    <= dreq;
-        //     fetched<='0;
-        //     offset<='0;
-        //     flushed<='0;
-        // end
         UNCACHE: if (cresp.ready) begin
             if (cresp.last) begin
                 state<=INIT;
@@ -190,6 +217,7 @@ module DCache
         counter_temp<=SET_NUM-1;
         counter<= counter==counter_temp[INDEX_BITS-1:0]?0:(counter+1);
         ram_reset<=reset;
+        print_cnt<='0;
         // fetched<='0;
         // flushed<='0;
     end
@@ -227,7 +255,7 @@ module DCache
             meta_ram.en='1;
             data_ram.en='1;
             data_ram.strobe=dreq.strobe;
-            data_index= set_index*(ASSOCIATIVITY*WORDS_PER_LINE)+replace_index*WORDS_PER_LINE+{4'b0,get_offset(dreq.addr)};
+            data_index= set_index*(ASSOCIATIVITY*WORDS_PER_LINE)+replace_index*WORDS_PER_LINE+{{($bits(data_index)-OFFSET_BITS){1'b0}},get_offset(dreq.addr)}; 
             data_ram.wdata=dreq.data;
             hit='1;
             if (|dreq.strobe) begin
@@ -241,9 +269,9 @@ module DCache
                 meta_ram.en='1;
                 data_ram.en='1;
                 data_ram.strobe=dreq.strobe;
-                data_index=set_index*(ASSOCIATIVITY*WORDS_PER_LINE)+i[INDEX_BITS-1:0]*WORDS_PER_LINE+{4'b0,get_offset(dreq.addr)};
+                data_index=set_index*(ASSOCIATIVITY*WORDS_PER_LINE)+i[INDEX_BITS-1:0]*WORDS_PER_LINE+{{($bits(data_index)-OFFSET_BITS){1'b0}},get_offset(dreq.addr)};
                 data_ram.wdata=dreq.data;
-                if (~(|dreq.strobe)) begin
+                if ((|dreq.strobe)) begin
                     meta_ram.strobe[i]=1'b1;
                     meta_wdata_arr[i].dirty='1;
                 end
@@ -283,13 +311,13 @@ module DCache
         end
     end
     FETCH: begin
-        data_index= set_index*(ASSOCIATIVITY*WORDS_PER_LINE)+replace_index*WORDS_PER_LINE+{4'b0,offset};
+        data_index= set_index*(ASSOCIATIVITY*WORDS_PER_LINE)+replace_index*WORDS_PER_LINE+{{($bits(data_index)-OFFSET_BITS){1'b0}},offset};
         data_ram.strobe = '1;
         data_ram.wdata=cresp.data;
         data_ram.en=1;
     end
     FLUSH:begin
-        data_index= set_index*(ASSOCIATIVITY*WORDS_PER_LINE)+replace_index*WORDS_PER_LINE+{4'b0,offset};
+        data_index= set_index*(ASSOCIATIVITY*WORDS_PER_LINE)+replace_index*WORDS_PER_LINE+{{($bits(data_index)-OFFSET_BITS){1'b0}},offset};
     end
     UNCACHE: ;
     default: ;

@@ -245,6 +245,17 @@ module core
 		.wd(dataW.wd)
 		
 	);
+	logic [25:0] clk_cnt;
+	always_ff @(posedge clk ) begin
+		clk_cnt += 1;
+		if (dreq.addr==64'h80007ac8&&dreq.valid&&dresp.data_ok) begin
+			$display("at pc:%x, dreq strobe:%b,data:%x;clk:%d",dataE.pc,dreq.strobe,dreq.data,clk_cnt);
+			$display("at pc:%x, dresp data:%x;clk:%d",dataE.pc,dresp.data,clk_cnt);
+		end
+		// else if (dreq.addr==64'h80007ac8&&(|dreq.strobe)) begin
+		// 	$display("at pc 0x80007ac8, dreq:%b,%x;clk:%d",dreq.strobe,dreq.data,clk_cnt);
+		// end
+	end
 	// csr csr(
 	// 	.clk,.reset,
 	// 	.ra(csra),
