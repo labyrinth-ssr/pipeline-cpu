@@ -45,9 +45,11 @@ end
             if (d_wait) begin
                 stallM='1;flushM='0;
             end 
-        end else if(d_wait2) begin
-            stallM='1;stallE='1;stallF='1;stallD='1;flushM2='0;flushW='1;stallM2='1;
-        end else if(d_wait) begin
+        end 
+        // else if(d_wait2) begin
+        //     stallM='1;stallE='1;stallF='1;stallD='1;flushM2='0;flushW='1;stallM2='1;
+        // end 
+        else if(d_wait) begin
             stallM='1;stallE='1;stallF='1;stallD='1;flushM2='1;
             if (mretW) begin
                 mret_dwait_nxt='1;
