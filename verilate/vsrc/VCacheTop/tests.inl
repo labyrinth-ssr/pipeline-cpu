@@ -64,7 +64,7 @@ WITH{
 } AS("fake store");
 
 // both dbus->store and dbus->load wait for your model to complete
-WITH{
+WITH {
 	dbus->store(0, MSIZE4, 0b1111, 0x2048ffff);
 // printf("dbus->load(0, MSIZE4) is %x\n", dbus->load(0, MSIZE4));
 ASSERT(dbus->load(0, MSIZE4) == 0x2048ffff);
@@ -319,15 +319,21 @@ WITH CMP_TO(ref) /* TRACE */
 	}
 } AS("cmp: byte");
 
-WITH CMP_TO(ref)
+WITH CMP_TO(ref) 
 {
 	constexpr int T = 65536;
 	int save=0;
 	for (int i = 0; i < T; i++) {
+		
+		
 		addr_t addr = randi<addr_t>(0, MEMORY_SIZE / 8) * 4;  // random address within 512 KiB region
 		auto temp=randi();
 		dbus->storew(addr, temp);
 		dbus->loadw(addr);
+		if (temp==0x34756bdd)
+		{
+			printf("pc:%x,i:%d",addr,i);
+		}
 	}
 } AS("cmp: random");
 

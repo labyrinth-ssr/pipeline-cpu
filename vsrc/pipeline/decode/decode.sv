@@ -10,6 +10,7 @@
 `include "pipeline/decode/pcbranch.sv"
 `include "pipeline/adder/adder.sv"
 `include "pipeline/mux/mux2.sv"
+`include "pipeline/mux/mux4.sv"
 `endif
 
 //decode 
@@ -20,7 +21,7 @@ module decode
         output decode_data_t dataD,
         output creg_addr_t ra1,ra2,
         input word_t rd1,rd2,
-        input u64 aluoutM,resultW,
+        input u64 aluoutM,resultW,aluoutM2,
         input u2 forwardaD,forwardbD
 );
     control_t ctl;
@@ -49,8 +50,8 @@ module decode
     // mux2 branch_srca(.d0(rd1),.d1(aluoutM),.s(forwardaD),.y(branch_inputa));
     // mux2 branch_srcb(.d0(rd2),.d1(aluoutM),.s(forwardbD),.y(branch_inputb));
 
-    mux3 branch_srca(.d0(rd1),.d1(resultW),.d2(aluoutM),.s(forwardaD),.y(branch_inputa));
-    mux3 branch_srcb(.d0(rd2),.d1(resultW),.d2(aluoutM),.s(forwardbD),.y(branch_inputb));
+    mux4 branch_srca(.d0(rd1),.d1(resultW),.d2(aluoutM),.d3(aluoutM2),.s(forwardaD),.y(branch_inputa));
+    mux4 branch_srcb(.d0(rd2),.d1(resultW),.d2(aluoutM),.d3(aluoutM2),.s(forwardbD),.y(branch_inputb));
 
     sext sext(
         .op(ctl.op),
