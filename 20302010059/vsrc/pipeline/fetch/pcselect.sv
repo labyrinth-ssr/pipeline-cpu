@@ -14,13 +14,19 @@ module pcselect
     input u64 pcplus4,
     output u64 pc_selected,
     input u64 pc_branch,
-    input branch_taken
-    // pcselect_intf.pcselect self
+    input branch_taken,
+    input u64 mepc,mtvec,
+    input u1 is_mret,
+    input u1 is_INTEXC
 );
-    // assign self.pcplus4=self.pc+4;
     always_comb begin
     pc_selected='0;
-        if (branch_taken) begin
+    if (is_mret) begin
+        pc_selected=mepc;
+    end else if (is_INTEXC) begin
+        pc_selected=mtvec;
+    end 
+    else if (branch_taken) begin
             pc_selected=pc_branch;
         end else begin
             pc_selected=pcplus4;

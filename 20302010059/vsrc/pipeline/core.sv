@@ -2,75 +2,89 @@
 `define __CORE_SV
 `ifdef VERILATOR
 `include "include/common.sv"
-`include "include/pipes.sv"
-//`include "include/interface.svh"
+`include "pipeline/regfile/regfile.sv"
 `include "pipeline/fetch/fetch.sv"
 `include "pipeline/fetch/pcselect.sv"
 `include "pipeline/decode/decode.sv"
 `include "pipeline/execute/execute.sv"
 `include "pipeline/memory/memory.sv"
+`include "pipeline/memory/m2.sv"
 `include "pipeline/writeback/writeback.sv"
 `include "pipeline/hazard/hazard.sv"
 `include "pipeline/regfile/regfile.sv"
 `include "pipeline/regfile/pipereg.sv"
 `include "pipeline/regfile/pcreg.sv"
-`include "pipeline/hazard/hazard.sv"
+`include "pipeline/writeback/csr_pkg.sv"
 `include "pipeline/mux/mux2.sv"
 
 `else
-//`include "include/interface.svh"
+
 `endif
 
 module core 
 	import common::*;
-	import pipes::*;(
-	input logic clk, reset,      
+	import csr_pkg::*;(
+	input logic clk, reset,
 	output ibus_req_t  ireq,
 	input  ibus_resp_t iresp,
 	output dbus_req_t  dreq,
-	input  dbus_resp_t dresp
+	input  dbus_resp_t dresp,
+	input logic trint, swint, exint
 );
 	/* TODO: Add your pipeline here. */
 	u64 pc,pc_nxt;
 	u32 raw_instr;
-	u1 stallF,stallD,flushD,flushE,flushM,flushW,stallM,stallE;
+	u2 mode_out;
+	u1 stallF,stallD,flushD,flushE,flushM,flushW,stallM,stallE,flushM2,stallM2;
 	u2 forwardaD,forwardbD,forwardaE,forwardbE;
-	u1 i_wait,d_wait,e_wait;
-    creg_addr_t edst,mdst,wdst;
+	u1 i_wait,d_wait,e_wait,d_wait2;
+	u12 csra;
+	u1 is_mret,is_INTEXC;
+    creg_addr_t edst,mdst,wdst,mdst2;
 	assign edst=dataE_nxt.dst;
-	assign mdst=dataM_nxt.dst;
+	assign mdst=dataE.dst;
+	assign mdst2=dataE_second.dst;
 	assign wdst=dataW.wa;
+	u64 mepc,mtvec;
+	u1 inter_valid;
+	csr_regs_t regs_out;
+
     // u1 ebranch;
 	// assign ebranch=dataE_nxt.ctl.pcSrc;
     creg_addr_t ra1,ra2;
-    u1 wrE,wrM,wrW;
+    u1 wrE,wrM,wrW,wrM2;
 	assign wrE=dataE_nxt.ctl.regWrite;
-	assign wrM=dataM_nxt.ctl.regWrite;
+	assign wrM=dataE.ctl.regWrite;
+	assign wrM2=dataE_second.ctl.regWrite;
+
 	assign wrW=dataW.ctl.regWrite;
 	assign i_wait=ireq.valid && ~iresp.data_ok;
-	assign d_wait=dreq.valid && ~dresp.data_ok;
+	assign d_wait=dreq.valid && ((|dreq.strobe && ~dresp.data_ok) || (~(|dreq.strobe) && ~dresp.get_read && dreq.addr[31]!=0)) ;
+	assign d_wait2=dreq.valid && ( (~(|dreq.strobe) && ~dresp.get_read && dreq.addr[31]==0)) ;
+
 	hazard hazard(
-		.stallF,.stallD,.flushD,.flushE,.flushM,.edst,.mdst,.wdst,.ra1,.ra2,.wrE,.wrM,.wrW,.i_wait,.d_wait,.stallM,.stallE,.memwrE(dataD.ctl.wbSelect==2'b1),.memwrM(dataE.ctl.wbSelect==2'b1),.forwardaE,.forwardbE,.forwardaD,.forwardbD,.dbranch(dataD_nxt.pcSrc),.dbranch2(dataD_nxt.ctl.branch!='0),.ra1E(dataD.ra1),.ra2E(dataD.ra2),.e_wait,.multialud(dataD_nxt.ctl.alufunc==MUL||dataD_nxt.ctl.alufunc==DIV||dataD_nxt.ctl.alufunc==REM),.multialuM(dataM_nxt.ctl.alufunc==MUL||dataM_nxt.ctl.alufunc==DIV||dataM_nxt.ctl.alufunc==REM),.multialuE(dataE_nxt.ctl.alufunc==MUL||dataE_nxt.ctl.alufunc==DIV||dataE_nxt.ctl.alufunc==REM)
+		.stallF,.stallD,.flushD,.flushE,.flushM,.edst,.mdst,.mdst2,.wdst,.ra1,.ra2,.wrE,.wrM,.wrM2,.wrW,.i_wait,.d_wait,.d_wait2,.stallM,.stallM2,.stallE,.memwrE(dataD.ctl.wbSelect==2'b1),.memwrM(dataE.ctl.wbSelect==2'b1),.memwrM2(dataE_second.ctl.wbSelect==2'b1),.forwardaE,.forwardbE,.forwardaD,.forwardbD,.dbranch(dataD_nxt.pcSrc),.dbranch2(dataD_nxt.ctl.branch!='0),.ra1E(dataD.ra1),.ra2E(dataD.ra2),.e_wait,.multialud(dataD_nxt.ctl.alufunc==MUL||dataD_nxt.ctl.alufunc==DIV||dataD_nxt.ctl.alufunc==REM),.multialuM(dataE.ctl.alufunc==MUL||dataE.ctl.alufunc==DIV||dataE.ctl.alufunc==REM),.multialuE(dataE_nxt.ctl.alufunc==MUL||dataE_nxt.ctl.alufunc==DIV||dataE_nxt.ctl.alufunc==REM),.clk,.flushW,.mretW(is_mret||is_INTEXC)
 	);
 	pcreg pcreg(
 		.clk,.reset,
 		.pc,
-		.pc_nxt,
+		.pc_nxt(~i_wait&&ipc_saved?ipc_save: pc_nxt),
 		.en(~(stallF)),
 		.flush('0)
 	);
-	assign ireq.addr=pc;
-	assign ireq.valid=1'b1;
+	u64 fetch_pc,fetchin_pc;
+	assign ireq.addr= pc;
+	assign ireq.valid=pc[1:0]!=2'b00 ? '0:1'b1;
 
-	assign raw_instr=iresp.data;
+	assign raw_instr=pc[1:0]!=2'b00 ? '0:iresp.data;
 	fetch_data_t dataF,dataF_nxt;
 	decode_data_t dataD,dataD_nxt;
-	execute_data_t dataE,dataE_nxt;
+	execute_data_t dataE,dataE_nxt,dataE_post,dataE_second;
 	memory_data_t dataM,dataM_nxt;
 	writeback_data_t dataW;
-	u64 pc_save;
-	u32 raw_instr_save;
-	u1 fetched;
+	u64 pc_save,pcselected_save,ipc_save;
+	u32 raw_instr_save,fetchin_rawinstr;
+	u1 fetched,pcselect_saved,ipc_saved;
 	u1 de_wait;
 	assign de_wait=e_wait|d_wait;
 
@@ -84,22 +98,49 @@ module core
 		end
 	end
 
-	always_ff @(posedge clk ) begin
-		// $display("%x %d %d %d",pc,i_wait,d_wait,stallF);
-	end
-
 	pcselect pcselect(
 		.pcplus4(pc+4),
 		.pc_selected(pc_nxt),
 		.pc_branch(dataD_nxt.target),
-		.branch_taken(dataD_nxt.pcSrc)
+		.branch_taken(dataD_nxt.pcSrc),
+		.mepc,.mtvec,
+		.is_mret,
+		.is_INTEXC
 	);
 
+	always_ff @(posedge clk) begin
+		if ((i_wait||d_wait)&&is_INTEXC) begin
+			ipc_save<=pc_nxt;
+			ipc_saved<='1;
+		end else if (~i_wait&&~d_wait) begin
+			ipc_save<='0;
+			ipc_saved<='0;
+		end
+	end
+
+	always_comb begin
+		fetchin_pc=pc;
+		fetchin_rawinstr=raw_instr;
+		if (pcselect_saved&&~d_wait) begin
+		fetchin_rawinstr=raw_instr;
+			fetchin_pc=pc;
+		end else if (fetched&&~de_wait) begin
+		fetchin_rawinstr=raw_instr_save;
+			fetchin_pc=pc_save;
+		end
+	end
+
 	fetch fetch(
-		.raw_instr(fetched&&~de_wait ?raw_instr_save:raw_instr),
-		.pc(fetched&&~de_wait?pc_save:pc),
-		.dataF(dataF_nxt)
+		.raw_instr(fetchin_rawinstr),
+		.pc(fetchin_pc),
+		.dataF(dataF_nxt),
+		.exception(fetchin_pc[1:0]!=2'b00),
+		.trint,
+		.swint,
+		.exint
 	);
+
+	
 
 	pipereg #(.T(fetch_data_t)) dreg(
 		.clk,.reset,
@@ -113,30 +154,32 @@ module core
 		.dataF(dataF),
 		.dataD(dataD_nxt),
 		.ra1,.ra2,.rd1,.rd2,
-		.aluoutM,.forwardaD,.forwardbD,.resultW(dataW.wd)
+		.aluoutM,.forwardaD,.forwardbD,.resultW(dataW.wd),.aluoutM2
 	);
 	u64 aluoutM;
     always_comb begin
         aluoutM='0;
-        unique case(dataM_nxt.ctl.wbSelect)
-            2'b00:aluoutM=dataM_nxt.alu_out;
-            2'b01:aluoutM=dataM_nxt.rd;
-            2'b10:aluoutM=dataM_nxt.pc+4;
-            2'b11:aluoutM=dataM_nxt.sextimm;
+        unique case(dataE.ctl.wbSelect)
+            2'b00:aluoutM=dataE.alu_out;
+            // 2'b01:aluoutM=dataE.rd;
+            2'b10:aluoutM=dataE.pc+4;
+            2'b11:aluoutM=dataE.sextimm;
+            default:begin end
+    endcase
+    end
+	u64 aluoutM2;
+    always_comb begin
+        aluoutM2='0;
+        unique case(dataE_second.ctl.wbSelect)
+            2'b00:aluoutM2=dataE_second.alu_out;
+            // 2'b01:aluoutM2=dataE_second.rd;
+            2'b10:aluoutM2=dataE_second.pc+4;
+            2'b11:aluoutM2=dataE_second.sextimm;
             default:begin end
     endcase
     end
 
-	regfile regfile(
-		.clk, .reset,
-		.ra1,
-		.ra2,
-		.rd1,//取出的数�?
-		.rd2,
-		.wvalid(dataW.ctl.regWrite),
-		.wa(dataW.wa/* 5'h0) */),
-		.wd(dataW.wd)
-	);
+
 	pipereg #(.T(decode_data_t)) ereg(
 		.clk,.reset,
 		.in(dataD_nxt),
@@ -149,10 +192,12 @@ module core
 		.dataD(dataD),
 		.dataE(dataE_nxt),
 		.forwardaE,.forwardbE,
-		.aluoutM,.resultW(dataW.wd),.e_wait
+		.aluoutM,.resultW(dataW.wd),.e_wait,.aluoutM2
 	);
-	assign stallM = dreq.valid && ~dresp.data_ok;
-	assign flushW = dreq.valid && ~dresp.data_ok;
+	
+	// assign stallM = dreq.valid && ~dresp.data_ok;
+	assign flushM2 = d_wait2? '0:d_wait;
+	
 
 	pipereg #(.T(execute_data_t)) mreg(
 		.clk,.reset,
@@ -163,9 +208,22 @@ module core
 	);
 	memory memory(
 		.dataE(dataE),
+		.dataE_post(dataE_post),
+		.dreq,
+		.exception(is_mret||is_INTEXC)
+	);
+	pipereg #(.T(execute_data_t)) mreg2(
+		.clk,.reset,
+		.in(dataE_post),
+		.out(dataE_second),
+		.en(~stallM2),
+		.flush(flushM2)
+	);
+	
+	m2 m2(
+		.dataE(dataE_second),
 		.dataM(dataM_nxt),
-		.dresp,
-		.dreq
+		.dresp
 	);
 	pipereg #(.T(memory_data_t)) wreg(
 		.clk,.reset,
@@ -175,10 +233,68 @@ module core
 		.flush(flushW)
 	);
 
+	assign inter_valid=~i_wait;
 	writeback writeback (
+		.clk,
+		.reset,
 		.dataM(dataM),
-		.dataW(dataW)
+		.dataW(dataW),
+		.mepc,
+		.mtvec,
+		.is_mret,
+		.is_INTEXC,
+		.regs_out,
+		.mode_out,
+		.inter_valid
 	);
+	regfile regfile(
+		.clk, .reset,
+		.ra1,
+		.ra2,
+		.rd1,
+		.rd2,
+		.wvalid(dataW.ctl.regWrite),
+		.wa(dataW.wa),
+		.wd(dataW.wd)
+		
+	);
+	// logic [25:0] clk_cnt;
+	logic [90:0] clk_cnt;
+
+	// always_ff @(posedge clk ) begin
+	// 	clk_cnt += 1;
+	// 	if (dreq.addr==64'h800100f8) begin
+	// 		$display("at pc:%x, clk:%d,data:%x",dataE.pc,clk_cnt,dreq.data);
+	// 		end
+	// 	if (dreq.addr==64'h800100f8) begin
+	// 		$display("at pc:%x, clk:%d,data:%x",dataE.pc,clk_cnt,dreq.data);
+	// 		end
+	// 	if (dataE.pc==64'h80002004) begin
+	// 		$display("at pc:%x, clk:%d",dataD_nxt.pc,clk_cnt);
+	// 		end
+		
+	// end
+	// if (dreq.addr==64'h80007ac8&&dreq.valid&&dresp.data_ok) begin
+		// 	$display("at pc:%x, dreq strobe:%b,data:%x;clk:%d",dataE.pc,dreq.strobe,dreq.data,clk_cnt);
+		// 	$display("at pc:%x, dresp data:%x;clk:%d",dataE.pc,dresp.data,clk_cnt);
+		// 	$display("at pc:%x, dresp data:%x;clk:%d",dataE.pc,dresp.data,clk_cnt);
+		// end
+		// if (clk_cnt[10]==10'b0) begin
+		// 	$display("at pc:%x, dresp data:%x;clk:%d",dataE.pc,dresp.data,clk_cnt);
+		// end
+		// else if (dreq.addr==64'h80007ac8&&(|dreq.strobe)) begin
+		// 	$display("at pc 0x80007ac8, dreq:%b,%x;clk:%d",dreq.strobe,dreq.data,clk_cnt);
+		// end
+	// csr csr(
+	// 	.clk,.reset,
+	// 	.ra(csra),
+	// 	.wa(csra),
+	// 	.wd(dataW.)
+	// );
+	// input u64 wd,
+	// output u64 rd,mepc,
+	// input u1 valid,is_mret
+
 `ifdef VERILATOR
 	DifftestInstrCommit DifftestInstrCommit(
 		.clock              (clk),
@@ -187,7 +303,7 @@ module core
 		.valid              (dataW.valid),
 		.pc                 (dataW.pc),
 		.instr              (raw_instr),
-		.skip               (dataW.ctl.memRw!=2'b00&& (dataW.alu_out[31]==0)),
+		.skip               ((dataW.ctl.memRw!=2'b00&& (dataW.alu_out[31]==0))||dataW.pc[1:0]!=2'b00),
 		.isRVC              (0),
 		.scFailed           (0),
 		.wen                (dataW.ctl.regWrite),
@@ -242,28 +358,28 @@ module core
 		.instrCnt           (0)
 	);
 	      
-	DifftestCSRState DifftestCSRState(
-		.clock              (clk),
-		.coreid             (0),
-		.priviledgeMode     (3),
-		.mstatus            (0),
-		.sstatus            (0),
-		.mepc               (0),
-		.sepc               (0),
-		.mtval              (0),
-		.stval              (0),
-		.mtvec              (0),
-		.stvec              (0),
-		.mcause             (0),
-		.scause             (0),
-		.satp               (0),
-		.mip                (0),
-		.mie                (0),
-		.mscratch           (0),
-		.sscratch           (0),
-		.mideleg            (0),
-		.medeleg            (0)
-	      );
+		  DifftestCSRState DifftestCSRState(
+			.clock (clk),
+			.coreid (0),
+			.priviledgeMode (mode_out),
+			.mstatus (regs_out.mstatus),
+			.sstatus (regs_out.mstatus & 64'h800000030001e000),
+			.mepc (regs_out.mepc),
+			.sepc (0),
+			.mtval (regs_out.mtval),
+			.stval (0),
+			.mtvec (regs_out.mtvec),
+			.stvec (0),
+			.mcause (regs_out.mcause),
+			.scause (0),
+			.satp (0),
+			.mip (regs_out.mip),
+			.mie (regs_out.mie),
+			.mscratch (regs_out.mscratch),
+			.sscratch (0),
+			.mideleg (0),
+			.medeleg (0)
+		);
 	      
 	DifftestArchFpRegState DifftestArchFpRegState(
 		.clock              (clk),

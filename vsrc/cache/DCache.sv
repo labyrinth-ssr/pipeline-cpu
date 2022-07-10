@@ -12,9 +12,9 @@ module DCache
 	import common::*; #(
 		/* You can modify this part to support more parameters */
 		/* e.g. OFFSET_BITS, INDEX_BITS, TAG_BITS */
-        parameter WORDS_PER_LINE = 16,
-        parameter ASSOCIATIVITY = 4,
-        parameter SET_NUM = 8
+        parameter WORDS_PER_LINE = 32,
+        parameter ASSOCIATIVITY = 16,
+        parameter SET_NUM = 16
 	)(
 	input logic clk, reset,
 	input  dbus_req_t  dreq,
@@ -149,7 +149,7 @@ module DCache
     assign creq.size     = state == UNCACHE? dreq.size:MSIZE8;
     assign creq.strobe   = state == UNCACHE? dreq.strobe: 8'b11111111; 
     // assign creq.data     = state == UNCACHE?dreq.data: data_rdata;
-    assign creq.len      = state ==UNCACHE?MLEN1:MLEN16;//word_per_line
+    assign creq.len      = state ==UNCACHE?MLEN1:MLEN32;//word_per_line
 	assign creq.burst	 = state ==UNCACHE?AXI_BURST_FIXED:AXI_BURST_INCR;
     assign cache_rdata=data_rdata;
     assign dresp.data= state == UNCACHE? cresp.data:cache_rdata;

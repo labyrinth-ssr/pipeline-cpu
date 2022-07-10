@@ -12,14 +12,17 @@ module decoder
     import common::*;
     import pipes::*;(
     input u32 raw_instr,
-    output control_t ctl
+    output control_t ctl,
+    output u1 illegal_instr
 );
 wire [6:0] f7=raw_instr[6:0];
 wire [2:0] f3=raw_instr[14:12];
 wire [6:0] rf7=raw_instr[31:25];
+u5 csra=raw_instr[19:15];
 u6 f6=raw_instr[31:26];
 always_comb begin
-    ctl ='0;//bit numbers depends on context
+    ctl ='0;
+    illegal_instr='0;
     unique case (f7)
         F7_ITYPE:begin
             ctl.regWrite=1'b1;
@@ -52,11 +55,13 @@ always_comb begin
                         F6_LOGIC:ctl.alufunc=RS;
                         F6_ARITH:ctl.alufunc=SRS;
                         default:begin
-                            
+                            illegal_instr='1;
                         end
                     endcase
                 end
                 default:begin
+                    illegal_instr='1;
+
                 end 
             endcase
         end
@@ -73,6 +78,8 @@ always_comb begin
                     F6_LOGIC:ctl.alufunc=RSW;
                     F6_ARITH:ctl.alufunc=SRSW;
                     default:begin
+                        illegal_instr='1;
+
                     end
                 endcase
                 end
@@ -81,6 +88,8 @@ always_comb begin
                     ctl.extAluOut='1;
                 end
                 default:begin
+                            illegal_instr='1;
+
                     end
             endcase
         end
@@ -107,7 +116,8 @@ always_comb begin
                     F3_REMU:begin
                         ctl.alufunc=REM;
                     end
-                    default: ;
+                    default:     illegal_instr='1;
+
                 endcase
             end
             else begin
@@ -118,6 +128,7 @@ always_comb begin
                     F7_R_SUB:ctl.alufunc=SUB;
                     default:begin
                         ctl.alufunc=ADD;
+                        //???
                     end
                 endcase
                 end
@@ -149,13 +160,12 @@ always_comb begin
                     endcase
                 end
                 default:begin
+                            illegal_instr='1;
                     
                 end 
             endcase
             end
         end 
-        default:begin
-        end
         F7_RW:begin
             ctl.op=RTYPE;
             ctl.regWrite=1'b1;
@@ -180,7 +190,8 @@ always_comb begin
                     F3_REMU:begin
                         ctl.alufunc=REM;
                     end
-                    default: ;
+                    default:     illegal_instr='1;
+
                 endcase
             end
             else begin
@@ -191,6 +202,8 @@ always_comb begin
                     F7_R_ADD:ctl.alufunc=ADD;
                     F7_R_SUB:ctl.alufunc=SUB;
                     default:begin
+                        illegal_instr='1;
+
                     end
                 endcase
                 end
@@ -199,6 +212,8 @@ always_comb begin
                     F6_LOGIC:ctl.alufunc=SRLW;
                     F6_ARITH:ctl.alufunc=SRAW;
                      default:begin
+                        illegal_instr='1;
+
                     end
                 endcase
                 end
@@ -207,6 +222,8 @@ always_comb begin
                     ctl.extAluOut='1;
                 end
                  default:begin
+                    illegal_instr='1;
+
                     end
             endcase
             end
@@ -249,6 +266,8 @@ always_comb begin
                     ctl.branch=BRANCH_BGEU;
                 end
                 default:begin
+                illegal_instr='1;
+
                 end 
             endcase
         end
@@ -278,6 +297,7 @@ always_comb begin
                 2'b10:ctl.msize=MSIZE4;
                 2'b11:ctl.msize=MSIZE8;
                 default:begin
+
                 end
             endcase
 //            ctl.msize={1'b0,f3[1:0]};
@@ -295,6 +315,14 @@ always_comb begin
                 default:begin
                 end
             endcase
+        end
+        F7_CSR:begin
+            if (f3==F3_CSRRW||f3==F3_CSRRC||f3==F3_CSRRS) begin
+                ctl.regWrite='1;
+            end
+        end
+        default:begin
+            illegal_instr='1;
         end
     endcase
 end

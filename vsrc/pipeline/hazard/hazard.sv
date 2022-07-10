@@ -32,7 +32,7 @@ end
 
     always_comb begin
         stallF='0;stallD='0;flushD='0;flushE='0;flushM='0;
-        stallM='0;stallE='0;branch_stall='0;lwstall='0;mret_dwait_nxt=mret_dwait;mret_iwait_nxt=mret_iwait;
+        stallM='0;stallE='0;branch_stall='0;lwstall='0;mret_dwait_nxt=mret_dwait;mret_iwait_nxt=mret_iwait;stallM2='0;flushW='0;
         if (mretW) begin
             flushD='1;flushE='1;flushM='1;flushW='1;flushM2='1;
             if (i_wait) begin

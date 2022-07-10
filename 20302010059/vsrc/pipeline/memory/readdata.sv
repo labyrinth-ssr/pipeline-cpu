@@ -14,12 +14,14 @@ import common::*;
     output u64 rd,
     input u3 addr,
     input msize_t msize,
-    input u1 mem_unsigned
+    input u1 mem_unsigned,
+	output u1 load_misalign
 );
 	u1 sign_bit;
 	always_comb begin
 		rd = 'x;
 		sign_bit = 'x;
+		load_misalign='0;
 		unique case(msize)
 			MSIZE1: begin // LB, LBU
 				unique case(addr)
@@ -56,54 +58,62 @@ import common::*;
 						rd = {{56{sign_bit}}, _rd[63-:8]};
 					end
 					default: begin
+						load_misalign='1;
 						
 					end
 				endcase
 			end
 			MSIZE2: begin
-				unique case(addr[2:1])
-					2'b00: begin
+				unique case(addr)
+					3'b000: begin
 						sign_bit = mem_unsigned ? 1'b0 : _rd[15];
 						rd = {{48{sign_bit}}, _rd[15-:16]};
 					end
-					2'b01: begin
+					3'b010: begin
 						sign_bit = mem_unsigned ? 1'b0 : _rd[31];
 						rd = {{48{sign_bit}}, _rd[31-:16]};
 					end
-					2'b10: begin
+					3'b100: begin
 						sign_bit = mem_unsigned ? 1'b0 : _rd[47];
 						rd = {{48{sign_bit}}, _rd[47-:16]};
 					end
-					2'b11: begin
+					3'b110: begin
 						sign_bit = mem_unsigned ? 1'b0 : _rd[63];
 						rd = {{48{sign_bit}}, _rd[63-:16]};
 					end
 					default: begin
+						load_misalign='1;
 						
 					end
 				endcase
 			end
 			MSIZE4: begin
-				unique case(addr[2])
-					1'b0: begin
+				unique case(addr)
+					3'b000: begin
 						sign_bit = mem_unsigned ? 1'b0 : _rd[31];
 						rd = {{32{sign_bit}}, _rd[31-:32]};
 					end
-					1'b1: begin
+					3'b100: begin
 						sign_bit = mem_unsigned ? 1'b0 : _rd[63];
 						rd = {{32{sign_bit}}, _rd[63-:32]};
 					end
 					default: begin
+						load_misalign='1;
 						
 					end
 				endcase
 			end
 			MSIZE8: begin
-				rd = _rd;
+				unique case(addr)
+					3'b000: begin
+						rd = _rd;
+					end
+					default: begin
+						load_misalign='1;
+					end
+				endcase
 			end
-			default: begin
-				
-			end
+			default: ;
 		endcase
 	end
 endmodule

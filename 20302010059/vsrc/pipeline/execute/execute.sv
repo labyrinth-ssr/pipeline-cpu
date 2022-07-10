@@ -7,7 +7,7 @@
 `include "include/interface.svh"
 `include "pipeline/execute/alu.sv"
 `include "pipeline/execute/aluabselector.sv"
-`include "pipeline/mux/mux3.sv"
+`include "pipeline/mux/mux4.sv"
 
 `endif
 
@@ -18,15 +18,15 @@ import common::*;
     input decode_data_t dataD,
     output execute_data_t dataE,
     input u2 forwardaE,forwardbE,
-    input u64 aluoutM,resultW,
+    input u64 aluoutM,resultW,aluoutM2,
     output u1 e_wait
 );
 u64 alu_result;
 word_t alu_a,alu_b;
 u64 srca,srcb;
 u64 pcAdded;
-    mux3 forward_rd1(.d0(dataD.srca),.d1(resultW),.d2(aluoutM),.s(forwardaE),.y(srca));
-    mux3 forward_rd2(.d0(dataD.srcb),.d1(resultW),.d2(aluoutM),.s(forwardbE),.y(srcb));
+    mux4 forward_rd1(.d0(dataD.srca),.d1(resultW),.d2(aluoutM),.d3(aluoutM2),.s(forwardaE),.y(srca));
+    mux4 forward_rd2(.d0(dataD.srcb),.d1(resultW),.d2(aluoutM),.d3(aluoutM2),.s(forwardbE),.y(srcb));
 
     aluabselector aluabselector(
         .selectA(dataD.ctl.selectA),
@@ -51,6 +51,13 @@ u64 pcAdded;
     assign dataE.valid=dataD.valid;
     assign dataE.ctl=dataD.ctl;
     assign dataE.alu_out=dataD.ctl.extAluOut?{{32{alu_result[31]}},alu_result[31:0]}:alu_result;
+    always_comb begin
+        dataE.csr_ctl=dataD.csr_ctl;
+        dataE.csr_ctl.rs1rd=srca;
+    end
+    assign dataE.int_type=dataD.int_type;
+
+
 endmodule
 
 `endif 

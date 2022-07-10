@@ -204,6 +204,7 @@ package common;
      logic  addr_ok;  // is the address accepted by cache?
      logic  data_ok;  // is the field "data" valid?
      word_t data;     // the data read from cache
+     u1 get_read;
  } dbus_resp_t;
  
  /**
@@ -236,7 +237,7 @@ package common;
   typedef enum i2 {
 	AXI_BURST_FIXED = '0,
 	AXI_BURST_INCR,
-	AXI_BURST_WRAP,
+	AXI_BURST_WRAP, 
 	AXI_BURST_RESERVED
 } axi_burst_type_t;
  typedef struct packed {
