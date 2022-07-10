@@ -59,9 +59,9 @@ module core
 
 	assign wrW=dataW.ctl.regWrite;
 	assign i_wait=ireq.valid && ~iresp.data_ok;
-	assign d_wait=dreq.valid && ((|dreq.strobe && ~dresp.data_ok) || (~(|dreq.strobe) && ~dresp.get_read && dreq.addr[31]!=0)) ;
+	assign d_wait=dreq.valid && ((|dreq.strobe && ~dresp.data_ok) || (~(|dreq.strobe) && ~dresp.get_read )) ;
 	assign d_wait2=dreq.valid && ( (~(|dreq.strobe) && ~dresp.get_read && dreq.addr[31]==0)) ;
-
+// && dreq.addr[31]!=0
 	hazard hazard(
 		.stallF,.stallD,.flushD,.flushE,.flushM,.edst,.mdst,.mdst2,.wdst,.ra1,.ra2,.wrE,.wrM,.wrM2,.wrW,.i_wait,.d_wait,.d_wait2,.stallM,.stallM2,.stallE,.memwrE(dataD.ctl.wbSelect==2'b1),.memwrM(dataE.ctl.wbSelect==2'b1),.memwrM2(dataE_second.ctl.wbSelect==2'b1),.forwardaE,.forwardbE,.forwardaD,.forwardbD,.dbranch(dataD_nxt.pcSrc),.dbranch2(dataD_nxt.ctl.branch!='0),.ra1E(dataD.ra1),.ra2E(dataD.ra2),.e_wait,.multialud(dataD_nxt.ctl.alufunc==MUL||dataD_nxt.ctl.alufunc==DIV||dataD_nxt.ctl.alufunc==REM),.multialuM(dataE.ctl.alufunc==MUL||dataE.ctl.alufunc==DIV||dataE.ctl.alufunc==REM),.multialuE(dataE_nxt.ctl.alufunc==MUL||dataE_nxt.ctl.alufunc==DIV||dataE_nxt.ctl.alufunc==REM),.clk,.flushW,.mretW(is_mret||is_INTEXC)
 	);
@@ -217,7 +217,7 @@ module core
 		.in(dataE_post),
 		.out(dataE_second),
 		.en(~stallM2),
-		.flush(flushM2)
+		.flush(d_wait)
 	);
 	
 	m2 m2(
